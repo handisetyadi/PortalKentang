@@ -1,8 +1,7 @@
 import type { ReceiptSettings, Transaction } from "@/lib/data/types";
 import { getPrintAdapter } from "@/lib/print/adapter";
 import type { PrintResult } from "@/lib/print/adapter";
-import { getStoredPrintSettings } from "@/lib/print/print-settings";
-import { prepareWebSerialForPrint } from "@/lib/print/web-serial-client";
+import { getThermalPrinterService } from "@/lib/thermal-printer/service";
 
 export type InvoiceDeliveryPayload = {
   transactionId: string;
@@ -28,16 +27,17 @@ export async function printThermalInvoice(
   return getPrintAdapter().printReceipt(transaction, receiptSettings);
 }
 
-/** Generate PDF → save to Supabase → open in new tab → print thermal receipt. */
+/** Generate PDF → open tab → direct ESC/POS thermal print (no browser print dialog). */
 export async function printInvoiceWithPdf(
   transaction: Transaction,
   receiptSettings: ReceiptSettings,
   options?: { customerName?: string }
 ): Promise<PrintInvoiceResult> {
-  const stored = getStoredPrintSettings();
-  let serialPrepared = true;
-  if (stored.printMethod === "web_serial") {
-    serialPrepared = await prepareWebSerialForPrint();
+  const service = getThermalPrinterService();
+  const config = await service.getConfig();
+  let thermalPrepared = true;
+  if (config?.enabled) {
+    thermalPrepared = await service.prepareForPrint();
   }
 
   const pdfTab =
@@ -78,23 +78,20 @@ export async function printInvoiceWithPdf(
     }
 
     const print: PrintResult =
-      stored.printMethod === "web_serial" && !serialPrepared
+      config?.enabled && !thermalPrepared
         ? {
             ok: false,
             status: "permission_denied",
             message:
-              "Pairing printer dibatalkan. PDF tetap dibuka — pair di Settings → Printer lalu cetak lagi.",
+              "Koneksi printer dibatalkan. PDF tetap dibuka — atur printer di Settings → Printer.",
           }
         : await printThermalInvoice(transaction, receiptSettings);
 
     const parts: string[] = ["PDF opened in a new tab."];
     if (print.ok) {
       parts.push(print.message ?? "ESC/POS receipt sent to printer.");
-    } else {
-      parts.push(
-        print.message ??
-          "Thermal print failed — pair printer in Settings → Printer or use QZ Tray."
-      );
+    } else if (config?.enabled) {
+      parts.push(print.message ?? "Thermal print failed.");
     }
 
     return {

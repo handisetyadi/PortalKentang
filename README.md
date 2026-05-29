@@ -66,3 +66,13 @@ curl -s https://YOUR_VERCEL_URL/api/health | jq '.build'
 `build.commit` should match the first 7+ characters of `git rev-parse HEAD` after deploy.
 
 CI runs on push via `.github/workflows/ci.yml` (build + tests).
+
+## Thermal printer (Android Bluetooth ESC/POS)
+
+Direct thermal print for **Woya, Epson, generic ESC/POS** — no browser print dialog.
+
+1. **Settings → Printer** — enable thermal, select **Android Bluetooth (SPP)**, pair MAC.
+2. **Android app** — use WebView + native bridge in [`android/`](android/README.md) (`window.PortalKentangPrinter`).
+3. POS / invoice **Print** sends raw ESC/POS bytes after PDF opens.
+
+See [`cursor-docs/thermal-printer-android.md`](cursor-docs/thermal-printer-android.md) for architecture, limits, and testing.
