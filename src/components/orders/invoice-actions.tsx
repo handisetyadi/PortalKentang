@@ -7,7 +7,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { PermissionGate } from "@/components/gates/PermissionGate";
 import { getMemberInvoiceOptions } from "@/lib/customers/member-invoice-eligibility";
 import {
-  printThermalInvoice,
+  printInvoiceWithPdf,
   sendInvoiceEmail,
   sendInvoiceWhatsApp,
 } from "@/lib/invoices/deliver-invoice";
@@ -39,9 +39,12 @@ export function InvoiceActions({
   const handlePrint = async () => {
     setBusy("print");
     try {
-      const result = await printThermalInvoice(transaction, receiptSettings);
+      const result = await printInvoiceWithPdf(transaction, receiptSettings, {
+        customerName: customer?.name,
+      });
+      const thermalFailed = result.print && !result.print.ok;
       toast({
-        title: result.ok ? "Printing receipt" : "Print failed",
+        title: result.ok ? (thermalFailed ? "PDF ready" : "Invoice ready") : "Print failed",
         description: result.message,
         variant: result.ok ? "default" : "destructive",
       });

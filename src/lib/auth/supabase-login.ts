@@ -58,6 +58,11 @@ export async function signInWithCompanyCredentials(
     return { error: "Invalid credentials." };
   }
 
+  const { data: sessionCheck } = await supabase.auth.getSession();
+  if (!sessionCheck.session) {
+    return { error: "Could not establish database session. Please try again." };
+  }
+
   const session = await buildUserSession(supabase, authData.user.id);
   if (!session) {
     return { error: "User profile not configured." };

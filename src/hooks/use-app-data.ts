@@ -50,12 +50,14 @@ export function useAppData() {
   );
 
   useEffect(() => {
-    if (session?.companyId || !isSupabaseConfigured()) {
+    if (session) {
+      void refresh();
+    } else if (!isSupabaseConfigured()) {
       void refresh();
     } else {
       setLoading(false);
     }
-  }, [refresh, session?.companyId]);
+  }, [refresh, session]);
 
   const persistSale = useCallback(
     async (next: AppData, transaction: Transaction) => {

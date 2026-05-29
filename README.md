@@ -42,3 +42,15 @@ Set `.env.local` from `.env.example`, then seed the cloud database:
 ```bash
 npm run db:seed-admin
 ```
+
+## Deploy (GitHub + Vercel)
+
+1. Push branch to GitHub: `git push -u origin cursor/supabase-auth-pos-and-data-wire`
+2. In [Vercel](https://vercel.com), import the GitHub repo and select that branch.
+3. Add environment variables (required at **build** time for `NEXT_PUBLIC_*`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (optional for runtime admin scripts)
+4. Deploy. After changing env vars, trigger a **Redeploy** so the client bundle is rebuilt.
+
+CI runs on push via `.github/workflows/ci.yml` (build + tests).

@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isSupabaseEnvConfigured } from "@/lib/supabase/env";
 
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
+  if (!isSupabaseEnvConfigured()) {
     return NextResponse.json({
       ok: false,
       supabase: { configured: false, connected: false, reason: "missing_env" },
     });
   }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   try {
     const supabase = createClient(url, anonKey, {

@@ -12,12 +12,88 @@ export type InvoiceDeliveryPayload = {
   phone?: string;
 };
 
+export type PrintInvoiceResult = {
+  ok: boolean;
+  message?: string;
+  pdfUrl?: string;
+  storagePath?: string;
+  print?: PrintResult;
+};
+
 export async function printThermalInvoice(
   transaction: Transaction,
   receiptSettings: ReceiptSettings
 ): Promise<PrintResult> {
   const html = formatReceiptHTML(transaction, receiptSettings);
   return getPrintAdapter().printReceipt(html);
+}
+
+/** Generate PDF → save to Supabase → open in new tab → print thermal receipt. */
+export async function printInvoiceWithPdf(
+  transaction: Transaction,
+  receiptSettings: ReceiptSettings,
+  options?: { customerName?: string }
+): Promise<PrintInvoiceResult> {
+  const pdfTab =
+    typeof window !== "undefined"
+      ? window.open("about:blank", "_blank", "noopener,noreferrer")
+      : null;
+
+  try {
+    const res = await fetch("/api/invoices/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transaction,
+        receiptSettings,
+        customerName: options?.customerName,
+      }),
+    });
+
+    const json = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      pdfUrl?: string;
+      storagePath?: string;
+    };
+
+    if (!res.ok || !json.ok || !json.pdfUrl) {
+      pdfTab?.close();
+      return {
+        ok: false,
+        message: json.message ?? "Failed to generate or save invoice PDF.",
+      };
+    }
+
+    if (pdfTab) {
+      pdfTab.location.href = json.pdfUrl;
+    } else {
+      window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
+    }
+
+    const print = await printThermalInvoice(transaction, receiptSettings);
+
+    const parts: string[] = ["PDF saved to Supabase and opened in a new tab."];
+    if (print.ok) {
+      parts.push(print.message ?? "Thermal print sent.");
+    } else {
+      parts.push(print.message ?? "Thermal print failed — check QZ Tray or browser print.");
+    }
+
+    return {
+      ok: true,
+      pdfUrl: json.pdfUrl,
+      storagePath: json.storagePath,
+      print,
+      message: parts.join(" "),
+    };
+  } catch (e) {
+    pdfTab?.close();
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Invoice print failed.",
+    };
+  }
 }
 
 export async function sendInvoiceEmail(

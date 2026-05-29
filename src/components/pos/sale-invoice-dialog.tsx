@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getMemberInvoiceOptions } from "@/lib/customers/member-invoice-eligibility";
 import {
-  printThermalInvoice,
+  printInvoiceWithPdf,
   sendInvoiceEmail,
   sendInvoiceWhatsApp,
 } from "@/lib/invoices/deliver-invoice";
@@ -54,11 +54,14 @@ export function SaleInvoiceDialog({
   const handlePrint = async () => {
     setBusy("print");
     try {
-      const result = await printThermalInvoice(transaction, receiptSettings);
+      const result = await printInvoiceWithPdf(transaction, receiptSettings, {
+        customerName: customer?.name,
+      });
+      const thermalFailed = result.print && !result.print.ok;
       toast({
-        title: result.ok ? "Printing receipt" : "Print failed",
+        title: result.ok ? (thermalFailed ? "PDF ready" : "Invoice ready") : "Print failed",
         description: result.message,
-        variant: result.ok ? "default" : "destructive",
+        variant: result.ok && !thermalFailed ? "default" : result.ok ? "default" : "destructive",
       });
     } finally {
       setBusy(null);
@@ -144,9 +147,9 @@ export function SaleInvoiceDialog({
             >
               <Printer className="h-5 w-5 shrink-0" />
               <div className="text-left">
-                <div className="font-medium">Print thermal receipt</div>
+                <div className="font-medium">Print invoice & receipt</div>
                 <div className="text-xs font-normal opacity-90">
-                  ESC/POS via QZ Tray, or browser print dialog
+                  PDF opens in a new tab (saved to Supabase), then thermal print
                 </div>
               </div>
             </Button>

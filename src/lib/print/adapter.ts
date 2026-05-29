@@ -15,8 +15,8 @@ export interface ReceiptPrintAdapter {
   printReceipt(html: string): Promise<PrintResult>;
 }
 
-import { browserPrintAdapter } from "./browser-fallback";
+import { qzWithBrowserFallbackAdapter } from "./qz-tray-adapter";
 
 export function getPrintAdapter(): ReceiptPrintAdapter {
-  return browserPrintAdapter;
+  return qzWithBrowserFallbackAdapter;
 }

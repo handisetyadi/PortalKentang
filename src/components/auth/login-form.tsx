@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { loginAction, type LoginState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,19 @@ const initialState: LoginState = {};
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get("reason") === "db-session";
 
   return (
     <>
       <form action={formAction} className="space-y-4">
+        {sessionExpired && !state.error && (
+          <Alert>
+            <AlertDescription>
+              Your database session expired. Please sign in again to save sales to Supabase.
+            </AlertDescription>
+          </Alert>
+        )}
         {state.error && (
           <Alert variant="destructive">
             <AlertDescription>{state.error}</AlertDescription>

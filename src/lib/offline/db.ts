@@ -3,8 +3,10 @@ import type { AppData } from "@/lib/data/types";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { hydrateAppData } from "@/lib/repositories/hydrate-app-data";
-import { persistAppData } from "@/lib/repositories/persist-app-data";
-import { persistSale } from "@/lib/repositories/persist-sale";
+import {
+  persistAppDataToSupabaseAction,
+  persistSaleToSupabaseAction,
+} from "@/lib/offline/server-actions";
 import type { Transaction } from "@/lib/data/types";
 import { createMockSeed } from "@/lib/data/mock-seed";
 
@@ -77,7 +79,12 @@ export async function loadAppData(companyId?: string): Promise<AppData> {
     return seed;
   }
 
-  throw new Error("No cached data and not signed in to Supabase.");
+  console.warn(
+    "No IndexedDB cache and no Supabase session — loading demo seed. Set env vars and log in for live data."
+  );
+  const seed = createMockSeed();
+  await saveAppData(seed);
+  return seed;
 }
 
 export async function saveAppData(data: AppData): Promise<void> {
@@ -90,10 +97,10 @@ export async function persistAppDataRemote(
 ): Promise<void> {
   await saveAppData(data);
   if (!isSupabaseConfigured()) return;
-  const supabase = createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return;
-  await persistAppData(supabase, companyId, data);
+  const result = await persistAppDataToSupabaseAction(data, companyId);
+  if (result.error) {
+    console.warn("Remote persist failed:", result.error);
+  }
 }
 
 export async function persistSaleRemote(
@@ -103,10 +110,8 @@ export async function persistSaleRemote(
 ): Promise<void> {
   await saveAppData(data);
   if (!isSupabaseConfigured()) return;
-  const supabase = createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error("Not signed in to Supabase.");
-  await persistSale(supabase, companyId, data, transaction);
+  const result = await persistSaleToSupabaseAction(data, companyId, transaction);
+  if (result.error) throw new Error(result.error);
 }
 
 export async function resetAppData(): Promise<AppData> {
