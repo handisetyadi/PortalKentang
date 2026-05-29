@@ -2,10 +2,23 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseEnvConfigured } from "@/lib/supabase/env";
 
+function buildInfo() {
+  return {
+    commit:
+      process.env.VERCEL_GIT_COMMIT_SHA ??
+      process.env.GIT_COMMIT_SHA ??
+      null,
+    ref: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+  };
+}
+
 export async function GET() {
+  const build = buildInfo();
+
   if (!isSupabaseEnvConfigured()) {
     return NextResponse.json({
       ok: false,
+      build,
       supabase: { configured: false, connected: false, reason: "missing_env" },
     });
   }
@@ -22,6 +35,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: connected,
+      build,
       supabase: {
         configured: true,
         connected,
@@ -33,6 +47,7 @@ export async function GET() {
     const message = e instanceof Error ? e.message : "unknown";
     return NextResponse.json({
       ok: false,
+      build,
       supabase: { configured: true, connected: false, reason: message },
     });
   }

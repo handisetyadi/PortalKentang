@@ -45,12 +45,24 @@ npm run db:seed-admin
 
 ## Deploy (GitHub + Vercel)
 
-1. Push branch to GitHub: `git push -u origin cursor/supabase-auth-pos-and-data-wire`
-2. In [Vercel](https://vercel.com), import the GitHub repo and select that branch.
-3. Add environment variables (required at **build** time for `NEXT_PUBLIC_*`):
+Production should track **`main`** on GitHub. Vercel only deploys commits that exist on the remote.
+
+1. Push your branch: `git push -u origin cursor/supabase-auth-pos-and-data-wire`
+2. Open a PR into `main`, merge it (or fast-forward `main` locally and `git push origin main`).
+3. In [Vercel](https://vercel.com), set **Production Branch** to `main` (Project → Settings → Git).
+4. Add environment variables (required at **build** time for `NEXT_PUBLIC_*`):
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (optional for runtime admin scripts)
-4. Deploy. After changing env vars, trigger a **Redeploy** so the client bundle is rebuilt.
+5. After merge or env changes, trigger **Redeploy** (Deployments → … → Redeploy) so the client bundle is rebuilt.
+
+**Verify the live build** — compare your local HEAD with production:
+
+```bash
+git rev-parse HEAD
+curl -s https://YOUR_VERCEL_URL/api/health | jq '.build'
+```
+
+`build.commit` should match the first 7+ characters of `git rev-parse HEAD` after deploy.
 
 CI runs on push via `.github/workflows/ci.yml` (build + tests).
