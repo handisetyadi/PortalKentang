@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { isDemoSuperuserEnabled } from "@/lib/auth/demo-superuser";
 
 const initialState: LoginState = {};
 
@@ -16,12 +15,6 @@ export function LoginForm() {
 
   return (
     <>
-      {isDemoSuperuserEnabled() && (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
-          <strong>Demo mode:</strong> Company <code>Kentang</code>, Username <code>Kentang</code>,
-          Password <code>Kentang</code> — full access, temporary until Supabase is connected.
-        </div>
-      )}
       <form action={formAction} className="space-y-4">
         {state.error && (
           <Alert variant="destructive">

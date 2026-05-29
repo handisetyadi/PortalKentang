@@ -1,14 +1,27 @@
-# Removing the demo superuser (Kentang)
+# Demo superuser removed
 
-When Supabase auth is connected, remove the temporary superuser:
+The temporary cookie-based superuser (`demo-superuser.ts`) has been removed.
 
-1. Delete or disable:
-   - `src/lib/auth/demo-superuser.ts`
-   - Demo branches in `src/lib/auth/actions.ts` (`matchesDemoSuperuserCredentials`)
-2. Set `DEMO_SUPERUSER_ENABLED=false` and `NEXT_PUBLIC_DEMO_SUPERUSER_ENABLED=false`
-3. Remove `isDemoSuperuser` from sessions and `UserSession` type
-4. Remove `DemoSuperuserBanner` and login form demo hint
-5. Implement real Supabase `signInWithPassword` in `loginAction`
-6. Clear browser cookies named `pk_session`
+## Production login
 
-No database rows exist for the demo user — only an HTTP-only cookie.
+Use Supabase Auth with the seeded admin account:
+
+| Field | Value |
+|-------|--------|
+| Company | `Kentang` |
+| Username | `Kentang` |
+| Password | `Kentang` |
+
+Email in Auth: `kentang@demo.portalkentang.local`
+
+## Seed admin + tenant data
+
+```bash
+npm run db:seed-admin
+```
+
+This creates the Kentang company catalog in Postgres and the admin user with all roles.
+
+## Migrations
+
+Schema migrations live in `supabase/migrations/`. Apply to cloud via Supabase MCP, CLI (`supabase db push`), or Dashboard SQL.

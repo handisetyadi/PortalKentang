@@ -1,12 +1,12 @@
-import { IDS } from "./ids";
+import { IDS, LEGACY_ID_MAP, resolveId } from "./ids";
 import type { AppData } from "./types";
 
 const now = () => new Date().toISOString();
 
 export function createMockSeed(): AppData {
-  const catCoffee = "c1";
-  const catFood = "c2";
-  const catRetail = "c3";
+  const catCoffee = IDS.catCoffee;
+  const catFood = IDS.catFood;
+  const catRetail = IDS.catRetail;
 
   const products = [
     { id: "p1", categoryId: catCoffee, name: "Espresso", sku: "BEV-001", barcode: "899001", price: 18000, taxRate: 0.11, isRecipeBased: true, isActive: true, description: "Single shot" },
@@ -56,9 +56,9 @@ export function createMockSeed(): AppData {
   ];
 
   const recipes = [
-    { id: "r1", productId: "p1", name: "Espresso shot", version: 1, outputQuantity: 1, outputUnit: "shot", yieldFactor: 1, wasteFactor: 0.02, isActive: true },
-    { id: "r2", productId: "p2", name: "Latte", version: 2, outputQuantity: 1, outputUnit: "cup", yieldFactor: 1, wasteFactor: 0.03, isActive: true },
-    { id: "r3", productId: "p5", name: "Kentang goreng portion", version: 1, outputQuantity: 1, outputUnit: "portion", yieldFactor: 0.95, wasteFactor: 0.05, isActive: true },
+    { id: "r1", productId: "p1", name: "Espresso shot", version: 1, outputQuantity: 1, outputUnit: "shot", yieldFactor: 1, isActive: true },
+    { id: "r2", productId: "p2", name: "Latte", version: 2, outputQuantity: 1, outputUnit: "cup", yieldFactor: 1, isActive: true },
+    { id: "r3", productId: "p5", name: "Kentang goreng portion", version: 1, outputQuantity: 1, outputUnit: "portion", yieldFactor: 0.95, isActive: true },
   ];
 
   const recipeItems = [
@@ -123,7 +123,7 @@ export function createMockSeed(): AppData {
     completedAt: new Date(Date.now() - 3600000).toISOString(),
   };
 
-  return {
+  const raw: AppData = {
     company: { name: "Kentang", slug: "kentang", accentColor: "teal" },
     outlets: [
       { id: IDS.outlet1, companyId: IDS.company, brandId: IDS.brand, name: "Kentang Cafe Sudirman", code: "KTG-001", timezone: "Asia/Jakarta", address: "Jl. Sudirman No. 1", isActive: true },
@@ -194,4 +194,14 @@ export function createMockSeed(): AppData {
       autoCut: true,
     },
   };
+
+  return resolveAppDataIds(raw);
+}
+
+function resolveAppDataIds(data: AppData): AppData {
+  let json = JSON.stringify(data);
+  for (const [legacy, uuid] of Object.entries(LEGACY_ID_MAP)) {
+    json = json.split(`"${legacy}"`).join(`"${uuid}"`);
+  }
+  return JSON.parse(json) as AppData;
 }

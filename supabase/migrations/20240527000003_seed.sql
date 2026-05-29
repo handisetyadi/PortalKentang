@@ -4,6 +4,8 @@ insert into public.permissions (key, description) values
   ('pos.session.close', 'Close POS session'),
   ('pos.transaction.create', 'Create transactions'),
   ('pos.receipt.print', 'Print receipts'),
+  ('pos.invoice.email', 'Email invoices to members'),
+  ('pos.invoice.whatsapp', 'Send invoices via WhatsApp to members'),
   ('inventory.item.read', 'View inventory'),
   ('inventory.item.manage', 'Manage inventory'),
   ('customer.read', 'View customers'),

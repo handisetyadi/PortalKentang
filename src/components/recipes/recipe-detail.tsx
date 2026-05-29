@@ -36,8 +36,7 @@ export function RecipeDetail({ id }: { id: string }) {
             <span className="text-muted-foreground">Version:</span> {recipe.version}
           </p>
           <p>
-            <span className="text-muted-foreground">Yield:</span> {recipe.yieldFactor} · Waste:{" "}
-            {(recipe.wasteFactor * 100).toFixed(1)}%
+            <span className="text-muted-foreground">Yield:</span> {recipe.yieldFactor}
           </p>
         </CardContent>
       </Card>

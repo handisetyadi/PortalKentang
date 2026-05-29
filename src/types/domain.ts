@@ -54,8 +54,6 @@ export interface UserSession {
   activeBrandId: string | null;
   roles: AppRole[];
   permissions: string[];
-  /** TEMPORARY: true for demo superuser Kentang — remove when Supabase auth is live */
-  isDemoSuperuser?: boolean;
 }
 
 export interface CartLine {

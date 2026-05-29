@@ -1,12 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import {
-  buildDemoSuperuserSession,
-  isDemoSuperuserEnabled,
-  matchesDemoSuperuserCredentials,
-} from "./demo-superuser";
-import { clearSession, getSession, setSession } from "./session";
+import { clearSession } from "./session";
+import { signInWithCompanyCredentials, signOutSupabase } from "./supabase-login";
 
 export type LoginState = {
   error?: string;
@@ -24,26 +20,21 @@ export async function loginAction(
     return { error: "Company, username, and password are required." };
   }
 
-  if (matchesDemoSuperuserCredentials(company, username, password)) {
-    await setSession(buildDemoSuperuserSession());
-    redirect("/dashboard");
+  const result = await signInWithCompanyCredentials(company, username, password);
+  if (result.error) {
+    return { error: result.error };
   }
 
-  if (!isDemoSuperuserEnabled()) {
-    return { error: "Demo login is disabled. Connect Supabase to sign in." };
-  }
-
-  return {
-    error:
-      "Invalid credentials. For demo access use Company Kentang, Username Kentang, Password Kentang.",
-  };
+  redirect("/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {
+  await signOutSupabase();
   await clearSession();
   redirect("/login");
 }
 
 export async function getSessionAction() {
+  const { getSession } = await import("./session");
   return getSession();
 }

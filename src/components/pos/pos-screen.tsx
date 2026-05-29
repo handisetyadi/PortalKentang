@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,10 +33,12 @@ import { IDS } from "@/lib/data/ids";
 import type { Product } from "@/lib/data/types";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SaleInvoiceDialog } from "./sale-invoice-dialog";
+import { defaultReceiptSettings } from "@/lib/pos/default-receipt-settings";
+import type { Customer, Transaction } from "@/lib/data/types";
 
 export function PosScreen() {
-  const router = useRouter();
-  const { data, persist, loading } = useAppData();
+  const { data, persist, persistSale, loading } = useAppData();
   const { session } = useAuth();
   const { lines, addLine, clear, getTotal, customerId } = useCartStore();
 
@@ -46,6 +47,10 @@ export function PosScreen() {
   const [pickerProduct, setPickerProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
+  const [completedSale, setCompletedSale] = useState<{
+    transaction: Transaction;
+    customer?: Customer;
+  } | null>(null);
 
   const openSession = useMemo(() => {
     if (!data) return null;
@@ -158,31 +163,40 @@ export function PosScreen() {
       });
       return;
     }
-    const total = getTotal();
-    const payments = buildPaymentsFromCart(total, method);
-    const localId = generateLocalId(IDS.outlet1);
-    const offline = !navigator.onLine;
 
-    const { data: next, transaction } = completeSale({
-      data,
-      outletId: openSession.outletId,
-      sessionId: openSession.id,
-      cashierId: session.userId,
-      lines,
-      payments,
-      customerId,
-      localId: offline ? localId : undefined,
-      syncStatus: offline ? "pending" : "synced",
-    });
+    try {
+      const total = getTotal();
+      const payments = buildPaymentsFromCart(total, method);
+      const localId = generateLocalId(IDS.outlet1);
+      const offline = !navigator.onLine;
 
-    await persist(next);
-    if (offline) await enqueueSync("transaction", { localId, transaction });
-    toast({
-      title: "Sale completed",
-      description: `${transaction.receiptNumber} · ${formatCurrency(transaction.total)}`,
-    });
-    clear();
-    router.push(`/orders/${transaction.id}`);
+      const { data: next, transaction } = completeSale({
+        data,
+        outletId: openSession.outletId,
+        sessionId: openSession.id,
+        cashierId: session.userId,
+        lines,
+        payments,
+        customerId,
+        localId: offline ? localId : undefined,
+        syncStatus: offline ? "pending" : "synced",
+      });
+
+      await persistSale(next, transaction);
+      if (offline) await enqueueSync("transaction", { localId, transaction });
+      const saleCustomer = customerId
+        ? next.customers.find((c) => c.id === customerId)
+        : undefined;
+      clear();
+      setCompletedSale({ transaction, customer: saleCustomer });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not save the sale.";
+      toast({
+        variant: "destructive",
+        title: "Sale failed to save",
+        description: message,
+      });
+    }
   };
 
   const handleHold = async () => {
@@ -338,6 +352,18 @@ export function PosScreen() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {completedSale && data && (
+        <SaleInvoiceDialog
+          open={!!completedSale}
+          onOpenChange={(open) => {
+            if (!open) setCompletedSale(null);
+          }}
+          transaction={completedSale.transaction}
+          customer={completedSale.customer}
+          receiptSettings={data.receiptSettings ?? defaultReceiptSettings(data.company.name)}
+        />
+      )}
     </div>
   );
 }

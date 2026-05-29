@@ -1,57 +1,43 @@
 "use client";
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { AppRole, UserSession } from "@/types/domain";
-import { isDemoSuperuserSession } from "@/lib/auth/demo-superuser";
 
 type AuthContextValue = {
   session: UserSession | null;
-  isDemoSuperuser: boolean;
-  hasPermission: (key: string) => boolean;
-  hasRole: (role: AppRole) => boolean;
-  hasAnyRole: (roles: AppRole[]) => boolean;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (role: AppRole | string) => boolean;
+  hasAnyRole: (roles: (AppRole | string)[]) => boolean;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+const AuthContext = createContext<AuthContextValue>({
+  session: null,
+  hasPermission: () => false,
+  hasRole: () => false,
+  hasAnyRole: () => false,
+});
 
 export function AuthProvider({
   session,
   children,
 }: {
   session: UserSession | null;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const value = useMemo<AuthContextValue>(() => {
-    const isDemo = isDemoSuperuserSession(session);
-
-    return {
+  const value = useMemo<AuthContextValue>(
+    () => ({
       session,
-      isDemoSuperuser: isDemo,
-      hasPermission: (key: string) => {
-        if (!session) return false;
-        if (isDemo) return true;
-        return session.permissions.includes(key);
-      },
-      hasRole: (role: AppRole) => {
-        if (!session) return false;
-        if (isDemo) return true;
-        return session.roles.includes(role);
-      },
-      hasAnyRole: (roles: AppRole[]) => {
-        if (!session) return false;
-        if (isDemo) return true;
-        return roles.some((r) => session.roles.includes(r));
-      },
-    };
-  }, [session]);
+      hasPermission: (permission) => session?.permissions.includes(permission) ?? false,
+      hasRole: (role) => session?.roles.includes(role as AppRole) ?? false,
+      hasAnyRole: (roles) =>
+        roles.some((r) => session?.roles.includes(r as AppRole) ?? false),
+    }),
+    [session]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return ctx;
+  return useContext(AuthContext);
 }

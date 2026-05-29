@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export function CompanySettingsContent() {
-  const { session, isDemoSuperuser } = useAuth();
+  const { session } = useAuth();
 
   return (
     <Card className="max-w-lg">
@@ -22,9 +22,7 @@ export function CompanySettingsContent() {
         <p>
           <span className="text-muted-foreground">Roles:</span> {session?.roles.join(", ")}
         </p>
-        {isDemoSuperuser && (
-          <Badge variant="warning">Demo superuser — all {session?.permissions.length} permissions</Badge>
-        )}
+        <Badge variant="secondary">{session?.permissions.length} permissions</Badge>
       </CardContent>
     </Card>
   );

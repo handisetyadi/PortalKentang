@@ -34,7 +34,7 @@ export function completeSale(params: {
     const recipe = recipes.find((r) => r.productId === line.productId && r.isActive);
 
     return {
-      id: `ti-${crypto.randomUUID()}`,
+      id: crypto.randomUUID(),
       productId: line.productId,
       productName: line.productName,
       productVariantId: line.variantId,

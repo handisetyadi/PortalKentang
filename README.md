@@ -9,14 +9,14 @@ npm install
 npm run dev
 ```
 
-Login (demo superuser): **Company** `Kentang`, **Username** `Kentang`, **Password** `Kentang`
+Login (Supabase admin): **Company** `Kentang`, **Username** `Kentang`, **Password** `Kentang`
 
 ## Stack
 
 - Next.js 15 App Router, TypeScript, Tailwind, shadcn/ui
 - Zustand (cart/session), Dexie (offline cache), TanStack Query
 - Supabase (schema + RLS migrations in `supabase/migrations/`)
-- Demo data in IndexedDB until Supabase is connected
+- Data loaded from Supabase when signed in; Dexie used as offline cache
 
 ## Features
 
@@ -37,8 +37,8 @@ supabase start
 supabase db reset
 ```
 
-Set `.env.local` from `.env.example`.
+Set `.env.local` from `.env.example`, then seed the cloud database:
 
-## Remove demo superuser
-
-See [cursor-docs/demo-superuser-removal.md](cursor-docs/demo-superuser-removal.md).
+```bash
+npm run db:seed-admin
+```

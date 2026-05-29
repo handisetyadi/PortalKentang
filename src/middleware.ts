@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { updateSession } from "@/lib/supabase/middleware";
 
 const AUTH_ROUTES = ["/login", "/forgot-password", "/invite"];
 const PUBLIC_PREFIXES = ["/_next", "/favicon.ico", "/api/health"];
@@ -23,11 +24,12 @@ function hasValidSessionCookie(request: NextRequest): boolean {
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  const supabaseResponse = await updateSession(request);
   const { pathname } = request.nextUrl;
 
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return supabaseResponse;
   }
 
   const authenticated = hasValidSessionCookie(request);
@@ -36,7 +38,7 @@ export function middleware(request: NextRequest) {
     if (authenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-    return NextResponse.next();
+    return supabaseResponse;
   }
 
   if (pathname === "/") {
@@ -51,7 +53,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {

@@ -215,7 +215,6 @@ create table public.recipes (
   output_quantity numeric(18,4) not null default 1,
   output_unit text not null default 'pcs',
   yield_factor numeric(10,6) not null default 1,
-  waste_factor numeric(10,6) not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   unique(company_id, product_id, product_variant_id, version)

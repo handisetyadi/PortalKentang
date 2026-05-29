@@ -1,14 +1,9 @@
 import { cookies } from "next/headers";
 import type { UserSession } from "@/types/domain";
-import {
-  buildDemoSuperuserSession,
-  isDemoSuperuserSession,
-  type DemoSuperuserSession,
-} from "./demo-superuser";
 
 export const SESSION_COOKIE_NAME = "pk_session";
 
-export type StoredSession = UserSession & { isDemoSuperuser?: boolean };
+export type StoredSession = UserSession;
 
 export async function getSession(): Promise<StoredSession | null> {
   const cookieStore = await cookies();
@@ -50,21 +45,15 @@ export async function requireSession(): Promise<StoredSession> {
 
 export function sessionHasPermission(session: StoredSession | null, permission: string): boolean {
   if (!session) return false;
-  if (isDemoSuperuserSession(session)) return true;
   return session.permissions.includes(permission);
 }
 
 export function sessionHasRole(session: StoredSession | null, role: string): boolean {
   if (!session) return false;
-  if (isDemoSuperuserSession(session)) return true;
   return session.roles.includes(role as StoredSession["roles"][number]);
 }
 
 export function sessionHasAnyRole(session: StoredSession | null, roles: string[]): boolean {
   if (!session) return false;
-  if (isDemoSuperuserSession(session)) return true;
   return roles.some((r) => session.roles.includes(r as StoredSession["roles"][number]));
 }
-
-export { buildDemoSuperuserSession, isDemoSuperuserSession };
-export type { DemoSuperuserSession };

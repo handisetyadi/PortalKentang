@@ -54,11 +54,7 @@ export function consumeStockForSale(
 
   for (const ri of items) {
     if (ri.modifierId && !params.modifierIds.includes(ri.modifierId)) continue;
-    const qty =
-      ri.quantity *
-      params.quantity *
-      recipe.yieldFactor *
-      (1 + recipe.wasteFactor);
+    const qty = ri.quantity * params.quantity * recipe.yieldFactor;
     const result = consumeItem(next, {
       inventoryItemId: ri.inventoryItemId,
       outletId: params.outletId,

@@ -124,7 +124,6 @@ export interface Recipe {
   outputQuantity: number;
   outputUnit: string;
   yieldFactor: number;
-  wasteFactor: number;
   isActive: boolean;
 }
 

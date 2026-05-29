@@ -1,64 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import { useAppData } from "@/hooks/use-app-data";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
-import { PermissionGate } from "@/components/gates/PermissionGate";
-import { toast } from "@/hooks/use-toast";
+import { InvoiceActions } from "@/components/orders/invoice-actions";
 
 export function OrderDetail({ id }: { id: string }) {
   const { data, loading } = useAppData();
   const { hasPermission } = useAuth();
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   if (loading) return <LoadingState />;
   const txn = data?.transactions.find((t) => t.id === id);
-  if (!txn) return <ErrorState message="Transaction not found" />;
+  if (!txn || !data) return <ErrorState message="Transaction not found" />;
 
-  const customer = data?.customers.find((c) => c.id === txn.customerId);
+  const customer = data.customers.find((c) => c.id === txn.customerId);
   const totalsMatch = Math.abs(txn.total - (txn.subtotal + txn.taxTotal)) < 0.01;
-
-  const handlePrint = () => {
-    toast({
-      title: "Print receipt",
-      description: "Browser print dialog — connect QZ Tray in production.",
-    });
-    window.print();
-  };
-
-  const handleEmail = async () => {
-    setActionLoading("email");
-    try {
-      const res = await fetch("/api/invoices/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transactionId: txn.id,
-          receiptNumber: txn.receiptNumber,
-          customerId: txn.customerId,
-        }),
-      });
-      const json = await res.json();
-      toast({
-        title: json.ok ? "Email queued" : "Email failed",
-        description: json.message ?? "Check server configuration.",
-      });
-    } catch {
-      toast({
-        variant: "destructive",
-        title: "Email failed",
-        description: "Could not reach the invoice API.",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -139,21 +99,11 @@ export function OrderDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
         )}
-        <PermissionGate permission="pos.receipt.print">
-          <Button className="w-full" variant="outline" onClick={handlePrint}>
-            Print receipt
-          </Button>
-        </PermissionGate>
-        <PermissionGate permission="pos.invoice.email">
-          <Button
-            className="w-full"
-            variant="outline"
-            disabled={actionLoading === "email"}
-            onClick={handleEmail}
-          >
-            {actionLoading === "email" ? "Sending…" : "Send email invoice"}
-          </Button>
-        </PermissionGate>
+        <InvoiceActions
+          transaction={txn}
+          customer={customer}
+          receiptSettings={data.receiptSettings}
+        />
       </div>
     </div>
   );

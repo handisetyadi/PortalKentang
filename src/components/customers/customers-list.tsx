@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { matchesCustomerSearch } from "@/lib/customers/search-customers";
 
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -43,7 +44,7 @@ export function CustomersList() {
 
   const onSubmit = async (values: FormValues) => {
     const customer: Customer = {
-      id: `cu-${crypto.randomUUID()}`,
+      id: crypto.randomUUID(),
       name: values.name,
       phone: values.phone || undefined,
       email: values.email || undefined,
@@ -119,12 +120,8 @@ export function CustomersList() {
         columns={columns}
         data={data.customers}
         emptyTitle="No customers"
-        searchPlaceholder="Search customers…"
-        searchFilter={(r, q) =>
-          r.name.toLowerCase().includes(q) ||
-          (r.phone?.includes(q) ?? false) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
-        }
+        searchPlaceholder="Search by name or mobile number…"
+        searchFilter={(r, q) => matchesCustomerSearch(r, q)}
       />
     </div>
   );

@@ -1,7 +1,9 @@
 "use client";
 
-import { db } from "./db";
+import { db, persistAppDataRemote, getCachedCompanyId } from "./db";
 import { useSyncStore } from "@/stores/sync-store";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import type { AppData } from "@/lib/data/types";
 
 export async function refreshSyncCounts() {
   const pending = await db.syncQueue.where("status").equals("pending").count();
@@ -47,26 +49,54 @@ export async function processSyncQueue(): Promise<void> {
     return;
   }
 
-  store.setStatus("syncing");
-  for (const item of pending) {
-    await db.syncQueue.delete(item.id);
+  if (!isSupabaseConfigured()) {
+    for (const item of pending) {
+      await db.syncQueue.delete(item.id);
+    }
+    await refreshSyncCounts();
+    return;
   }
-  store.setLastSync(new Date().toISOString());
+
+  store.setStatus("syncing");
+  const companyId = await getCachedCompanyId();
+  const cached = await db.appData.get("main");
+  if (companyId && cached) {
+    const { id: _, ...appData } = cached;
+    try {
+      await persistAppDataRemote(appData as AppData, companyId);
+      for (const item of pending) {
+        await db.syncQueue.delete(item.id);
+      }
+      store.setLastSync(new Date().toISOString());
+      store.setStatus("online");
+    } catch {
+      store.setStatus("failed");
+    }
+  }
+
   await refreshSyncCounts();
 }
 
 export async function enqueueSync(
   type: "transaction" | "stock" | "print",
   payload: unknown
-) {
-  const id = crypto.randomUUID();
+): Promise<void> {
+  const now = new Date().toISOString();
   await db.syncQueue.add({
-    id,
+    id: crypto.randomUUID(),
     type,
     payload,
     status: "pending",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   });
   await refreshSyncCounts();
+  if (navigator.onLine && isSupabaseConfigured()) {
+    const companyId = await getCachedCompanyId();
+    const cached = await db.appData.get("main");
+    if (companyId && cached) {
+      const { id: _, ...appData } = cached;
+      void persistAppDataRemote(appData as AppData, companyId).then(() => processSyncQueue());
+    }
+  }
 }
