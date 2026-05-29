@@ -1,12 +1,14 @@
+import type { ReceiptSettings, Transaction } from "@/lib/data/types";
 import type { PrintResult, ReceiptPrintAdapter } from "./adapter";
-import { printHtmlInBrowser } from "./browser-print";
+import { formatReceiptPlainText } from "./escpos-receipt";
+import { printPlainTextInBrowser } from "./browser-print";
 
 export const browserPrintAdapter: ReceiptPrintAdapter = {
   async testPrinter(): Promise<PrintResult> {
     return {
       ok: true,
       status: "success",
-      message: "Browser print ready (no popup — uses hidden print frame).",
+      message: "Browser print ready (plain-text receipt in hidden frame).",
     };
   },
 
@@ -14,7 +16,8 @@ export const browserPrintAdapter: ReceiptPrintAdapter = {
     return this.testPrinter();
   },
 
-  async printReceipt(html: string): Promise<PrintResult> {
-    return printHtmlInBrowser(html);
+  async printReceipt(transaction, receiptSettings): Promise<PrintResult> {
+    const plain = formatReceiptPlainText(transaction, receiptSettings);
+    return printPlainTextInBrowser(plain, receiptSettings.paperWidthMm);
   },
 };

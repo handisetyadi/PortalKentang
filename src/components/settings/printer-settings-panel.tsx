@@ -6,15 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
 import { getPrintAdapter } from "@/lib/print/adapter";
 import { listQzPrinters } from "@/lib/print/qz-client";
 import {
   getStoredPrintSettings,
   saveStoredPrintSettings,
+  SERIAL_BAUD_RATES,
+  type PrintMethod,
   type StoredPrintSettings,
 } from "@/lib/print/print-settings";
-import { formatReceiptHTML } from "@/lib/pos/receipt-html";
+import {
+  isWebSerialSupported,
+  listGrantedSerialPorts,
+  requestSerialPort,
+  setCachedSerialPort,
+} from "@/lib/print/web-serial-client";
 import type { ReceiptSettings, Transaction } from "@/lib/data/types";
 
 const SAMPLE_RECEIPT: { transaction: Transaction; settings: ReceiptSettings } = {
@@ -59,36 +65,73 @@ const SAMPLE_RECEIPT: { transaction: Transaction; settings: ReceiptSettings } = 
   },
 };
 
+const METHOD_LABELS: Record<PrintMethod, string> = {
+  web_serial: "Web Serial (Bluetooth / USB — tanpa QZ)",
+  qz: "QZ Tray",
+  browser: "Browser print (dialog sistem)",
+};
+
 export function PrinterSettingsPanel() {
   const [settings, setSettings] = useState<StoredPrintSettings>(getStoredPrintSettings);
-  const [printers, setPrinters] = useState<string[]>([]);
+  const [qzPrinters, setQzPrinters] = useState<string[]>([]);
+  const [serialPorts, setSerialPorts] = useState<{ label: string }[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const webSerialOk = isWebSerialSupported();
 
-  const refreshPrinters = useCallback(async () => {
+  const refreshQzPrinters = useCallback(async () => {
     const list = await listQzPrinters();
-    setPrinters(list);
-    if (list.length > 0 && !settings.printerName) {
+    setQzPrinters(list);
+    if (list.length > 0 && !settings.printerName && settings.printMethod === "qz") {
       setSettings((s) => ({ ...s, printerName: list[0] }));
     }
-  }, [settings.printerName]);
+  }, [settings.printerName, settings.printMethod]);
+
+  const refreshSerialPorts = useCallback(async () => {
+    const list = await listGrantedSerialPorts();
+    setSerialPorts(list.map((p) => ({ label: p.label })));
+  }, []);
 
   useEffect(() => {
     setSettings(getStoredPrintSettings());
-    void refreshPrinters();
-  }, [refreshPrinters]);
+    void refreshQzPrinters();
+    void refreshSerialPorts();
+  }, [refreshQzPrinters, refreshSerialPorts]);
 
   const persist = (next: StoredPrintSettings) => {
     setSettings(next);
     saveStoredPrintSettings(next);
   };
 
-  const checkQz = async () => {
+  const checkConnection = async () => {
     setBusy(true);
     try {
       const result = await getPrintAdapter().testPrinter();
       setStatus(result.message ?? result.status);
-      await refreshPrinters();
+      await refreshQzPrinters();
+      await refreshSerialPorts();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pairSerialPrinter = async () => {
+    if (!webSerialOk) {
+      setStatus("Web Serial tidak didukung di browser ini. Gunakan Chrome atau Edge.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const port = await requestSerialPort();
+      if (!port) {
+        setStatus("Tidak ada perangkat dipilih.");
+        return;
+      }
+      setCachedSerialPort(port);
+      await refreshSerialPorts();
+      setStatus("Printer dipasangkan. Jalankan Test print.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Gagal memasangkan printer.");
     } finally {
       setBusy(false);
     }
@@ -98,8 +141,10 @@ export function PrinterSettingsPanel() {
     setBusy(true);
     saveStoredPrintSettings(settings);
     try {
-      const html = formatReceiptHTML(SAMPLE_RECEIPT.transaction, SAMPLE_RECEIPT.settings);
-      const result = await getPrintAdapter().printReceipt(html);
+      const result = await getPrintAdapter().printReceipt(
+        SAMPLE_RECEIPT.transaction,
+        SAMPLE_RECEIPT.settings
+      );
       setStatus(result.message ?? (result.ok ? "Print sent" : "Print failed"));
     } finally {
       setBusy(false);
@@ -110,67 +155,44 @@ export function PrinterSettingsPanel() {
     <div className="max-w-lg space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">QZ Tray (thermal)</CardTitle>
+          <CardTitle className="text-base">Metode cetak</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
-          <p>
-            Install and run{" "}
-            <a
-              href="https://qz.io/download/"
-              className="text-primary underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              QZ Tray
-            </a>{" "}
-            for ESC/POS thermal printers (Epson, Xprinter, Panda, Star). Allow this site in QZ
-            Tray → Site Manager.
-          </p>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="use-qz"
-              checked={settings.useQzTray}
-              onCheckedChange={(checked) =>
-                persist({ ...settings, useQzTray: checked === true })
-              }
-            />
-            <Label htmlFor="use-qz" className="font-normal text-foreground">
-              Prefer QZ Tray when available
-            </Label>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="printer-name">Printer name (exact match in QZ)</Label>
-            {printers.length > 0 ? (
-              <select
-                id="printer-name"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={settings.printerName}
-                onChange={(e) => persist({ ...settings, printerName: e.target.value })}
+        <CardContent className="space-y-4 text-sm">
+          <fieldset className="space-y-2">
+            {(Object.keys(METHOD_LABELS) as PrintMethod[]).map((method) => (
+              <label
+                key={method}
+                className="flex cursor-pointer items-start gap-2 rounded-md border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
               >
-                <option value="">Default (first printer)</option>
-                {printers.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <Input
-                id="printer-name"
-                value={settings.printerName}
-                onChange={(e) => persist({ ...settings, printerName: e.target.value })}
-                placeholder="e.g. XP-80C"
-              />
-            )}
-          </div>
+                <input
+                  type="radio"
+                  name="print-method"
+                  className="mt-1"
+                  checked={settings.printMethod === method}
+                  onChange={() => persist({ ...settings, printMethod: method })}
+                />
+                <span>
+                  <span className="font-medium text-foreground">{METHOD_LABELS[method]}</span>
+                  {method === "web_serial" && (
+                    <span className="mt-0.5 block text-muted-foreground">
+                      ESC/POS langsung ke printer Bluetooth (SPP) atau USB serial — tanpa QZ Tray.
+                      Chrome / Edge desktop atau Android.
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={checkQz}>
-              Check QZ connection
+            <Button type="button" variant="outline" disabled={busy} onClick={checkConnection}>
+              Check connection
             </Button>
             <Button type="button" disabled={busy} onClick={testPrint}>
               Test print
             </Button>
           </div>
+
           {status && (
             <Alert>
               <AlertDescription>{status}</AlertDescription>
@@ -178,15 +200,112 @@ export function PrinterSettingsPanel() {
           )}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Browser print</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          If QZ Tray is off or unavailable, receipts print via a hidden frame (no popup). The
-          system print dialog opens with the receipt content — choose your thermal printer there.
-        </CardContent>
-      </Card>
+
+      {settings.printMethod === "web_serial" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Web Serial (Bluetooth)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            {!webSerialOk ? (
+              <p className="text-destructive">
+                Browser ini tidak mendukung Web Serial. Buka portal di Chrome atau Edge.
+              </p>
+            ) : (
+              <>
+                <p>
+                  Pair printer Bluetooth thermal di OS terlebih dahulu (mode SPP / serial). Lalu
+                  klik tombol di bawah dan pilih perangkat di dialog browser.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="baud-rate">Baud rate</Label>
+                  <select
+                    id="baud-rate"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                    value={settings.serialBaudRate}
+                    onChange={(e) =>
+                      persist({ ...settings, serialBaudRate: Number(e.target.value) })
+                    }
+                  >
+                    {SERIAL_BAUD_RATES.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs">Umum: 9600 untuk Bluetooth; 115200 untuk beberapa USB.</p>
+                </div>
+                {serialPorts.length > 0 && (
+                  <p className="text-foreground">
+                    Terhubung: {serialPorts.map((p) => p.label).join(", ")}
+                  </p>
+                )}
+                <Button type="button" variant="outline" disabled={busy} onClick={pairSerialPrinter}>
+                  Pair Bluetooth / serial printer
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {settings.printMethod === "qz" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">QZ Tray</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Install{" "}
+              <a
+                href="https://qz.io/download/"
+                className="text-primary underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                QZ Tray
+              </a>{" "}
+              dan izinkan situs ini di Site Manager.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="printer-name">Nama printer (QZ)</Label>
+              {qzPrinters.length > 0 ? (
+                <select
+                  id="printer-name"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  value={settings.printerName}
+                  onChange={(e) => persist({ ...settings, printerName: e.target.value })}
+                >
+                  <option value="">Default (printer pertama)</option>
+                  {qzPrinters.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  id="printer-name"
+                  value={settings.printerName}
+                  onChange={(e) => persist({ ...settings, printerName: e.target.value })}
+                  placeholder="e.g. XP-80C"
+                />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {settings.printMethod === "browser" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Browser print</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Struk teks polos dibuka di dialog cetak sistem — pilih printer thermal secara manual.
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

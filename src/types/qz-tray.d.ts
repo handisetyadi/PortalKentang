@@ -1,4 +1,11 @@
 declare module "qz-tray" {
+  type QzPrintData = {
+    type: "raw" | "pixel";
+    format: "command" | "html" | "image";
+    flavor: "plain" | "base64";
+    data: string;
+  };
+
   const qz: {
     websocket: {
       isActive(): boolean;
@@ -10,7 +17,7 @@ declare module "qz-tray" {
     configs: {
       create(printer: string): unknown;
     };
-    print(config: unknown, data: unknown[]): Promise<void>;
+    print(config: unknown, data: QzPrintData[] | string[]): Promise<void>;
   };
   export default qz;
 }

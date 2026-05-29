@@ -19,7 +19,7 @@ export async function isQzAvailable(): Promise<boolean> {
   if (!qz) return false;
   try {
     if (qz.websocket.isActive()) return true;
-    await qz.websocket.connect({ retries: 1, delay: 0.5 });
+    await qz.websocket.connect({ retries: 2, delay: 0.5 });
     return qz.websocket.isActive();
   } catch {
     return false;
@@ -38,10 +38,27 @@ export async function listQzPrinters(): Promise<string[]> {
   }
 }
 
-export async function printHtmlWithQz(
-  html: string,
+export function resolveQzPrinterName(requested: string, printers: string[]): string | null {
+  if (printers.length === 0) return null;
+  const trimmed = requested.trim();
+  if (!trimmed) return printers[0];
+  if (printers.includes(trimmed)) return trimmed;
+
+  const lower = trimmed.toLowerCase();
+  const exactIgnoreCase = printers.find((p) => p.toLowerCase() === lower);
+  if (exactIgnoreCase) return exactIgnoreCase;
+
+  const partial = printers.find(
+    (p) => p.toLowerCase().includes(lower) || lower.includes(p.toLowerCase())
+  );
+  return partial ?? printers[0];
+}
+
+/** Send raw ESC/POS bytes to the selected thermal printer via QZ Tray. */
+export async function printEscPosWithQz(
+  escPosData: string,
   printerName: string
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; printer?: string }> {
   const qz = await getQz();
   if (!qz) {
     return { ok: false, message: "QZ Tray library failed to load" };
@@ -51,33 +68,34 @@ export async function printHtmlWithQz(
   if (!connected) {
     return {
       ok: false,
-      message: "QZ Tray is not running. Start QZ Tray, then try again.",
+      message:
+        "QZ Tray is not running. Install QZ Tray, start it, and allow this site in Site Manager.",
     };
   }
 
   try {
     const printers = await qz.printers.find();
-    const name =
-      printerName && printers.includes(printerName)
-        ? printerName
-        : printers[0];
+    const name = resolveQzPrinterName(printerName, printers);
 
     if (!name) {
-      return { ok: false, message: "No thermal printer found in QZ Tray" };
+      return {
+        ok: false,
+        message:
+          "No printer found. Connect your thermal printer (USB), install its driver, then refresh the list in Settings → Printer.",
+      };
     }
 
     const config = qz.configs.create(name);
-    const data = [
+    await qz.print(config, [
       {
-        type: "pixel" as const,
-        format: "html" as const,
-        flavor: "plain" as const,
-        data: html,
+        type: "raw",
+        format: "command",
+        flavor: "plain",
+        data: escPosData,
       },
-    ];
+    ]);
 
-    await qz.print(config, data);
-    return { ok: true, message: `Sent to printer: ${name}` };
+    return { ok: true, message: `Printed via ESC/POS on: ${name}`, printer: name };
   } catch (e) {
     const message = e instanceof Error ? e.message : "QZ print failed";
     return { ok: false, message };

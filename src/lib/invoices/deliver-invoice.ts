@@ -1,7 +1,8 @@
 import type { ReceiptSettings, Transaction } from "@/lib/data/types";
-import { formatReceiptHTML } from "@/lib/pos/receipt-html";
 import { getPrintAdapter } from "@/lib/print/adapter";
 import type { PrintResult } from "@/lib/print/adapter";
+import { getStoredPrintSettings } from "@/lib/print/print-settings";
+import { prepareWebSerialForPrint } from "@/lib/print/web-serial-client";
 
 export type InvoiceDeliveryPayload = {
   transactionId: string;
@@ -24,8 +25,7 @@ export async function printThermalInvoice(
   transaction: Transaction,
   receiptSettings: ReceiptSettings
 ): Promise<PrintResult> {
-  const html = formatReceiptHTML(transaction, receiptSettings);
-  return getPrintAdapter().printReceipt(html);
+  return getPrintAdapter().printReceipt(transaction, receiptSettings);
 }
 
 /** Generate PDF → save to Supabase → open in new tab → print thermal receipt. */
@@ -34,6 +34,12 @@ export async function printInvoiceWithPdf(
   receiptSettings: ReceiptSettings,
   options?: { customerName?: string }
 ): Promise<PrintInvoiceResult> {
+  const stored = getStoredPrintSettings();
+  let serialPrepared = true;
+  if (stored.printMethod === "web_serial") {
+    serialPrepared = await prepareWebSerialForPrint();
+  }
+
   const pdfTab =
     typeof window !== "undefined"
       ? window.open("about:blank", "_blank", "noopener,noreferrer")
@@ -71,13 +77,24 @@ export async function printInvoiceWithPdf(
       window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
     }
 
-    const print = await printThermalInvoice(transaction, receiptSettings);
+    const print: PrintResult =
+      stored.printMethod === "web_serial" && !serialPrepared
+        ? {
+            ok: false,
+            status: "permission_denied",
+            message:
+              "Pairing printer dibatalkan. PDF tetap dibuka — pair di Settings → Printer lalu cetak lagi.",
+          }
+        : await printThermalInvoice(transaction, receiptSettings);
 
-    const parts: string[] = ["PDF saved to Supabase and opened in a new tab."];
+    const parts: string[] = ["PDF opened in a new tab."];
     if (print.ok) {
-      parts.push(print.message ?? "Thermal print sent.");
+      parts.push(print.message ?? "ESC/POS receipt sent to printer.");
     } else {
-      parts.push(print.message ?? "Thermal print failed — check QZ Tray or browser print.");
+      parts.push(
+        print.message ??
+          "Thermal print failed — pair printer in Settings → Printer or use QZ Tray."
+      );
     }
 
     return {

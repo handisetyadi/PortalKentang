@@ -149,7 +149,7 @@ export function SaleInvoiceDialog({
               <div className="text-left">
                 <div className="font-medium">Print invoice & receipt</div>
                 <div className="text-xs font-normal opacity-90">
-                  PDF opens in a new tab (saved to Supabase), then thermal print
+                  PDF opens in a new tab, then ESC/POS to thermal (Web Serial Bluetooth or QZ Tray)
                 </div>
               </div>
             </Button>
