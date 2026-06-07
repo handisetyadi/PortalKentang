@@ -46,10 +46,10 @@ export async function buildUserSession(
   const { data: permRows } = await supabase
     .from("role_permissions")
     .select("permission_key")
-    .in("role", roles.length ? roles : ["company_admin"]);
+    .in("role", roles.length ? roles : ["company_owner"]);
 
   const permissions = [...new Set((permRows ?? []).map((p) => p.permission_key))];
-  if (roles.includes("company_admin")) {
+  if (roles.includes("company_owner")) {
     for (const key of PERMISSION_KEYS) {
       if (!permissions.includes(key)) permissions.push(key);
     }

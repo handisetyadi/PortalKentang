@@ -19,6 +19,10 @@ export async function refreshSyncCounts() {
 export function initSyncListeners() {
   if (typeof window === "undefined") return () => {};
 
+  if (!navigator.onLine) {
+    useSyncStore.getState().setStatus("offline");
+  }
+
   const onOnline = () => {
     useSyncStore.getState().setStatus("online");
     void processSyncQueue();

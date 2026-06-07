@@ -73,6 +73,9 @@ export function buildReceiptLines(
         width
       )
     );
+    if (i.notes) {
+      lines.push(`> ${i.notes}`.slice(0, width));
+    }
   }
 
   lines.push(receiptRule(width));

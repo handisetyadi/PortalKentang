@@ -76,9 +76,9 @@ insert into public.product_modifier_groups (product_id, modifier_group_id) value
 on conflict do nothing;
 
 insert into public.recipes (id, company_id, product_id, name, version, output_quantity, output_unit, yield_factor, is_active) values
-  ('5d6e4d73-a002-4450-8f3e-d281f288a670', '00000000-0000-4000-8000-000000000010', '933fe097-0284-4bd2-830c-f991bd3b87e0', 'Espresso shot', 1, 1, 'shot', 1, true),
+  ('5d6e4d73-a002-4450-8f3e-d281f288a670', '00000000-0000-4000-8000-000000000010', '933fe097-0284-4bd2-830c-f991bd3b87e0', 'Espresso', 1, 1, 'shot', 1, true),
   ('22f2017e-5ede-408e-bae1-6a648dddfbc6', '00000000-0000-4000-8000-000000000010', '0e5bb413-00cb-48b8-8b43-2ca8540730f9', 'Latte', 2, 1, 'cup', 1, true),
-  ('9e81a073-46b8-4de8-bfad-d8e973f1350d', '00000000-0000-4000-8000-000000000010', 'e2cb0454-e4c8-445d-abca-655f7ac1de88', 'Kentang goreng portion', 1, 1, 'portion', 0.95, true)
+  ('9e81a073-46b8-4de8-bfad-d8e973f1350d', '00000000-0000-4000-8000-000000000010', 'e2cb0454-e4c8-445d-abca-655f7ac1de88', 'Kentang Goreng', 1, 1, 'portion', 0.95, true)
 on conflict (id) do nothing;
 
 insert into public.recipe_items (id, company_id, recipe_id, inventory_item_id, modifier_id, quantity, unit, conversion_to_base_factor, is_optional) values

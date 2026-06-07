@@ -30,6 +30,7 @@ export function formatReceiptHTML(txn: Transaction, settings: ReceiptSettings): 
       return `<div class="item">
         <div>${name}</div>
         <div class="row"><span>${i.quantity} x ${formatCurrency(i.unitPrice)}</span><span>${formatCurrency(i.lineTotal)}</span></div>
+        ${i.notes ? `<div class="note">${i.notes}</div>` : ""}
       </div>`;
     })
     .join("");
@@ -57,6 +58,7 @@ export function formatReceiptHTML(txn: Transaction, settings: ReceiptSettings): 
     hr{border:none;border-top:1px dashed #000;margin:6px 0}
     .row{display:flex;justify-content:space-between;gap:4px}
     .item{margin-bottom:6px}
+    .note{font-size:10px;font-style:italic;color:#444;margin-top:2px;padding-left:4px}
     .total{font-weight:bold;font-size:12px}
   </style></head><body>
     <div class="center store">${settings.storeName}</div>

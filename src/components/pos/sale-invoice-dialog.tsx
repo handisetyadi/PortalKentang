@@ -17,7 +17,7 @@ import { getMemberInvoiceOptions } from "@/lib/customers/member-invoice-eligibil
 import {
   printInvoiceWithPdf,
   sendInvoiceEmail,
-  sendInvoiceWhatsApp,
+  shareInvoiceViaWhatsApp,
 } from "@/lib/invoices/deliver-invoice";
 import type { Customer, ReceiptSettings, Transaction } from "@/lib/data/types";
 import { formatCurrency } from "@/lib/utils";
@@ -90,20 +90,25 @@ export function SaleInvoiceDialog({
   };
 
   const handleWhatsApp = async () => {
-    if (!member.canWhatsApp) return;
+    if (!member.canWhatsApp || !customer?.phone) return;
     setBusy("whatsapp");
     try {
-      const result = await sendInvoiceWhatsApp(deliveryPayload);
+      const result = await shareInvoiceViaWhatsApp({
+        transaction,
+        receiptSettings,
+        phone: customer.phone,
+        customerName: customer.name,
+      });
       toast({
-        title: result.ok ? "WhatsApp sent" : "WhatsApp failed",
+        title: result.ok ? "WhatsApp dibuka" : "WhatsApp gagal",
         description: result.message,
         variant: result.ok ? "default" : "destructive",
       });
     } catch {
       toast({
         variant: "destructive",
-        title: "WhatsApp failed",
-        description: "Could not reach the invoice API.",
+        title: "WhatsApp gagal",
+        description: "Tidak dapat membuka WhatsApp.",
       });
     } finally {
       setBusy(null);
@@ -180,8 +185,10 @@ export function SaleInvoiceDialog({
           >
             <MessageCircle className="h-5 w-5 shrink-0" />
             <div className="text-left">
-              <div className="font-medium">Send WhatsApp invoice</div>
-              <div className="text-xs font-normal text-muted-foreground">{member.whatsAppHint}</div>
+              <div className="font-medium">Kirim invoice via WhatsApp</div>
+              <div className="text-xs font-normal text-muted-foreground">
+                {busy === "whatsapp" ? "Menyiapkan PDF…" : member.whatsAppHint}
+              </div>
             </div>
           </Button>
         </div>

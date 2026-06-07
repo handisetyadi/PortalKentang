@@ -16,6 +16,7 @@ import {
   Legend,
 } from "recharts";
 import { useAppData } from "@/hooks/use-app-data";
+import { useHasMounted } from "@/hooks/use-has-mounted";
 import { StatCard } from "@/components/shared/StatCard";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { computeDashboardMetrics } from "@/lib/analytics/metrics";
@@ -29,9 +30,12 @@ const COLORS = ["hsl(var(--primary))", "#94a3b8", "#f59e0b", "#ec4899"];
 
 export function DashboardView() {
   const { data, loading } = useAppData();
+  const mounted = useHasMounted();
   if (loading || !data) return <LoadingState />;
   const m = computeDashboardMetrics(data);
   const recs = buildRecommendations(data);
+
+  const chartPlaceholder = <div className="h-full min-h-[16rem] animate-pulse rounded-md bg-muted" />;
 
   return (
     <div className="space-y-6">
@@ -47,15 +51,19 @@ export function DashboardView() {
             <CardTitle className="text-base">Sales trend</CardTitle>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={m.salesTrend}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [`Rp ${v.toLocaleString("id-ID")}`, "Sales"]} />
-                <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={m.salesTrend}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => [`Rp ${v.toLocaleString("id-ID")}`, "Sales"]} />
+                  <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              chartPlaceholder
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -63,15 +71,19 @@ export function DashboardView() {
             <CardTitle className="text-base">Product mix</CardTitle>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={m.productMixData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="hsl(var(--primary))" radius={4} />
-              </BarChart>
-            </ResponsiveContainer>
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={m.productMixData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={4} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              chartPlaceholder
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -79,17 +91,21 @@ export function DashboardView() {
             <CardTitle className="text-base">Payment methods</CardTitle>
           </CardHeader>
           <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={m.paymentSplit} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
-                  {m.paymentSplit.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Legend />
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={m.paymentSplit} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
+                    {m.paymentSplit.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              chartPlaceholder
+            )}
           </CardContent>
         </Card>
         <Card>

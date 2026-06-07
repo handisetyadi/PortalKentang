@@ -57,3 +57,9 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+@layer components {
+  .select-field {
+    @apply flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm;
+  }
+}

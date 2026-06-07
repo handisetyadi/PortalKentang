@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { CartLine, PaymentLine } from "@/types/domain";
+import { cartLinesAreMergeable } from "@/lib/pos/cart-lines";
 import { getCartTotals } from "@/lib/pos/pricing";
 import { generateLocalId } from "@/lib/utils";
 
@@ -27,9 +28,17 @@ export const useCartStore = create<CartState>((set, get) => ({
   heldOrderId: undefined,
 
   addLine: (line) =>
-    set((s) => ({
-      lines: [...s.lines, { ...line, id: generateLocalId("cart") }],
-    })),
+    set((s) => {
+      const existing = s.lines.find((l) => cartLinesAreMergeable(line, l));
+      if (existing) {
+        return {
+          lines: s.lines.map((l) =>
+            l.id === existing.id ? { ...l, quantity: l.quantity + line.quantity } : l
+          ),
+        };
+      }
+      return { lines: [...s.lines, { ...line, id: generateLocalId("cart") }] };
+    }),
 
   updateQuantity: (lineId, quantity) =>
     set((s) => ({

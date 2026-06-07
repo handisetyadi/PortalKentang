@@ -6,6 +6,7 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { Badge } from "@/components/ui/badge";
 import type { Recipe } from "@/lib/data/types";
+import { recipeInternalName, recipeTitle } from "@/lib/recipes/recipe-display";
 
 export function RecipesList() {
   const { data, loading } = useAppData();
@@ -15,16 +16,18 @@ export function RecipesList() {
     {
       key: "name",
       header: "Recipe",
-      cell: (r) => (
-        <Link href={`/recipes/${r.id}`} className="font-medium hover:underline">
-          {r.name}
-        </Link>
-      ),
-    },
-    {
-      key: "product",
-      header: "Product",
-      cell: (r) => data.products.find((p) => p.id === r.productId)?.name ?? "—",
+      cell: (r) => {
+        const product = data.products.find((p) => p.id === r.productId);
+        const internalName = recipeInternalName(r, product);
+        return (
+          <Link href={`/recipes/${r.id}`} className="hover:underline">
+            <span className="font-medium">{recipeTitle(r, product)}</span>
+            {internalName && (
+              <span className="block text-xs text-muted-foreground">{internalName}</span>
+            )}
+          </Link>
+        );
+      },
     },
     { key: "version", header: "Version", cell: (r) => `v${r.version}` },
     {

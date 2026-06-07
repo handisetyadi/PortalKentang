@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppData } from "@/lib/data/types";
 import type { AccentColor } from "@/types/domain";
+import { parseReceiptSettings } from "./company-settings";
 import { throwIfError } from "./base";
 
 export async function hydrateAppData(
@@ -21,11 +22,13 @@ export async function hydrateAppData(
     fifoRes,
     recipesRes,
     recipeItemsRes,
+    recipeByproductsRes,
     customersRes,
     sessionsRes,
     transactionsRes,
     approvalsRes,
-    receiptRes,
+    companySettingsRes,
+    inventoryCategoriesRes,
     stockLedgerRes,
     stockCountsRes,
     heldRes,
@@ -43,11 +46,13 @@ export async function hydrateAppData(
     supabase.from("fifo_cost_layers").select("*").eq("company_id", companyId),
     supabase.from("recipes").select("*").eq("company_id", companyId),
     supabase.from("recipe_items").select("*").eq("company_id", companyId),
+    supabase.from("recipe_byproducts").select("*").eq("company_id", companyId),
     supabase.from("customers").select("*").eq("company_id", companyId),
     supabase.from("pos_sessions").select("*").eq("company_id", companyId),
     supabase.from("transactions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("approval_requests").select("*").eq("company_id", companyId),
-    supabase.from("receipt_settings").select("*").eq("company_id", companyId).maybeSingle(),
+    supabase.from("company_settings").select("receipt, printer, integrations").eq("company_id", companyId).maybeSingle(),
+    supabase.from("inventory_categories").select("*").eq("company_id", companyId).order("sort_order"),
     supabase.from("stock_ledger").select("*").eq("company_id", companyId).order("created_at", { ascending: false }).limit(500),
     supabase.from("stock_counts").select("*").eq("company_id", companyId),
     supabase.from("held_orders").select("*").eq("company_id", companyId),
@@ -153,9 +158,15 @@ export async function hydrateAppData(
       name: c.name,
       sortOrder: c.sort_order,
     })),
+    inventoryCategories: (inventoryCategoriesRes.data ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      sortOrder: c.sort_order,
+    })),
     products: (productsRes.data ?? []).map((p) => ({
       id: p.id,
       categoryId: p.category_id ?? "",
+      inventoryItemId: p.inventory_item_id ?? undefined,
       name: p.name,
       sku: p.sku,
       barcode: p.barcode ?? undefined,
@@ -233,7 +244,7 @@ export async function hydrateAppData(
     })),
     recipes: (recipesRes.data ?? []).map((r) => ({
       id: r.id,
-      productId: r.product_id ?? "",
+      productId: r.product_id ?? undefined,
       name: r.name,
       version: r.version,
       outputQuantity: Number(r.output_quantity),
@@ -245,13 +256,41 @@ export async function hydrateAppData(
       id: ri.id,
       recipeId: ri.recipe_id,
       inventoryItemId: ri.inventory_item_id,
+      substituteInventoryItemId: ri.substitute_inventory_item_id ?? undefined,
+      substituteQuantity:
+        ri.substitute_quantity != null ? Number(ri.substitute_quantity) : undefined,
+      substituteUnit: ri.substitute_unit ?? undefined,
       modifierId: ri.modifier_id ?? undefined,
       quantity: Number(ri.quantity),
       unit: ri.unit,
       conversionToBaseFactor: Number(ri.conversion_to_base_factor),
       isOptional: ri.is_optional,
     })),
-    recipeByproducts: [],
+    recipeByproducts: (recipeByproductsRes.data ?? []).map((bp) => {
+      const alternateId = bp.alternate_inventory_item_id;
+      const primaryId = bp.inventory_item_id;
+      if (alternateId) {
+        return {
+          id: bp.id,
+          recipeId: bp.recipe_id,
+          semiFinishedInventoryItemId: primaryId,
+          rawMaterialInventoryItemId: alternateId,
+          quantity: Number(bp.quantity),
+          unit: bp.unit,
+          expiryDays: bp.expiry_days,
+          costAllocationPercent: Number(bp.cost_allocation_percent),
+        };
+      }
+      return {
+        id: bp.id,
+        recipeId: bp.recipe_id,
+        semiFinishedInventoryItemId: primaryId,
+        quantity: Number(bp.quantity),
+        unit: bp.unit,
+        expiryDays: bp.expiry_days,
+        costAllocationPercent: Number(bp.cost_allocation_percent),
+      };
+    }),
     customers: (customersRes.data ?? []).map((c) => ({
       id: c.id,
       name: c.name ?? "",
@@ -282,11 +321,13 @@ export async function hydrateAppData(
         return {
           id: item.id,
           productId: item.product_id,
-          productName: product?.name ?? "Product",
+          productName: item.product_name ?? product?.name ?? "Product",
           productVariantId: item.product_variant_id ?? undefined,
-          variantName: variant?.name,
+          variantName: item.variant_name ?? variant?.name,
           modifierIds: itemMods.map((m) => m.modifier_id),
-          modifierNames: itemMods.map((m) => modifierMap.get(m.modifier_id)?.name ?? ""),
+          modifierNames: itemMods.map(
+            (m) => m.modifier_name ?? modifierMap.get(m.modifier_id)?.name ?? ""
+          ),
           recipeId: item.recipe_id ?? undefined,
           recipeVersion: item.recipe_version ?? undefined,
           quantity: Number(item.quantity),
@@ -295,6 +336,7 @@ export async function hydrateAppData(
           taxAmount: Number(item.tax_amount),
           lineTotal: Number(item.line_total),
           fifoCogs: Number(item.fifo_cogs),
+          notes: item.notes ?? undefined,
         };
       });
       return {
@@ -317,6 +359,8 @@ export async function hydrateAppData(
         total: Number(t.total),
         fifoCogsTotal: Number(t.fifo_cogs_total),
         syncStatus: t.sync_status as "synced" | "pending" | "failed",
+        invoicePdfPath: t.invoice_pdf_path ?? undefined,
+        cartNote: t.cart_note ?? undefined,
         createdAt: t.created_at,
         completedAt: t.completed_at ?? undefined,
       };
@@ -349,22 +393,6 @@ export async function hydrateAppData(
       reason: a.reason ?? undefined,
       createdAt: a.created_at,
     })),
-    receiptSettings: receiptRes.data
-      ? {
-          storeName: receiptRes.data.store_name,
-          paperWidthMm: receiptRes.data.paper_width_mm,
-          footerText: receiptRes.data.footer_text ?? "",
-          taxNumber: receiptRes.data.tax_number ?? "",
-          copyCount: receiptRes.data.copy_count,
-          autoCut: receiptRes.data.auto_cut,
-        }
-      : {
-          storeName: companyRes.data!.name,
-          paperWidthMm: 80,
-          footerText: "",
-          taxNumber: "",
-          copyCount: 1,
-          autoCut: true,
-        },
+    receiptSettings: parseReceiptSettings(companySettingsRes.data, companyRes.data!.name),
   };
 }

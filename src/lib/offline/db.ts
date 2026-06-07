@@ -94,13 +94,14 @@ export async function saveAppData(data: AppData): Promise<void> {
 export async function persistAppDataRemote(
   data: AppData,
   companyId: string
-): Promise<void> {
+): Promise<{ error?: string }> {
   await saveAppData(data);
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured()) return {};
   const result = await persistAppDataToSupabaseAction(data, companyId);
   if (result.error) {
     console.warn("Remote persist failed:", result.error);
   }
+  return result;
 }
 
 export async function persistSaleRemote(

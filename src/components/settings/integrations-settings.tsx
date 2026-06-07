@@ -5,7 +5,11 @@ import { Badge } from "@/components/ui/badge";
 
 const integrations = [
   { name: "Resend", description: "Email invoices with PDF attachment", enabled: false },
-  { name: "WhatsApp Cloud API", description: "Manual invoice delivery (placeholder)", enabled: false },
+  {
+    name: "WhatsApp",
+    description: "Buka wa.me dengan ringkasan struk + link PDF (tanpa API)",
+    enabled: true,
+  },
   { name: "Payment gateway", description: "QRIS, Midtrans, Xendit — coming soon", enabled: false },
 ];
 

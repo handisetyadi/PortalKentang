@@ -4,13 +4,42 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useCartStore } from "@/stores/cart-store";
+import { useAppData } from "@/hooks/use-app-data";
+import { toast } from "@/hooks/use-toast";
+import { IDS } from "@/lib/data/ids";
 import { getLineTotal } from "@/lib/pos/pricing";
+import { validateCartStock } from "@/lib/pos/stock-availability";
 import { formatCurrency } from "@/lib/utils";
+import { useCartStore } from "@/stores/cart-store";
+import { usePosSessionStore } from "@/stores/pos-session-store";
 
 export function CartPanel() {
+  const { data } = useAppData();
+  const { activeSession } = usePosSessionStore();
+  const outletId = activeSession?.outletId ?? IDS.outlet1;
   const { lines, cartNote, setCartNote, updateQuantity, removeLine, getSubtotal, getTaxTotal, getTotal } =
     useCartStore();
+
+  const handleQuantityChange = (lineId: string, quantity: number) => {
+    if (quantity <= 0) {
+      updateQuantity(lineId, quantity);
+      return;
+    }
+    if (data) {
+      const line = lines.find((l) => l.id === lineId);
+      const projected = lines.map((l) => (l.id === lineId ? { ...l, quantity } : l));
+      const check = validateCartStock(data, projected, outletId, line?.productName);
+      if (!check.ok) {
+        toast({
+          variant: "destructive",
+          title: "Stok habis",
+          description: check.message,
+        });
+        return;
+      }
+    }
+    updateQuantity(lineId, quantity);
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -29,6 +58,9 @@ export function CartPanel() {
                   {line.modifierNames.length > 0 && (
                     <p className="text-xs text-muted-foreground">+ {line.modifierNames.join(", ")}</p>
                   )}
+                  {line.notes && (
+                    <p className="text-xs italic text-muted-foreground">&ldquo;{line.notes}&rdquo;</p>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -46,7 +78,7 @@ export function CartPanel() {
                     size="icon"
                     className="h-8 w-8"
                     aria-label="Decrease quantity"
-                    onClick={() => updateQuantity(line.id, line.quantity - 1)}
+                    onClick={() => handleQuantityChange(line.id, line.quantity - 1)}
                   >
                     <Minus className="h-3 w-3" />
                   </Button>
@@ -56,7 +88,7 @@ export function CartPanel() {
                     size="icon"
                     className="h-8 w-8"
                     aria-label="Increase quantity"
-                    onClick={() => updateQuantity(line.id, line.quantity + 1)}
+                    onClick={() => handleQuantityChange(line.id, line.quantity + 1)}
                   >
                     <Plus className="h-3 w-3" />
                   </Button>

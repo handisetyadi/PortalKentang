@@ -30,6 +30,9 @@ export function transactionToPrintPayload(
       label: `${i.quantity} x ${formatCurrency(i.unitPrice)}`,
       value: formatCurrency(i.lineTotal),
     });
+    if (i.notes) {
+      lines.push({ text: `> ${i.notes}`.slice(0, width), align: "left" });
+    }
   }
 
   lines.push({ text: receiptRule(width), align: "left" });

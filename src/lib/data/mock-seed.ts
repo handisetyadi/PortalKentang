@@ -12,11 +12,11 @@ export function createMockSeed(): AppData {
     { id: "p1", categoryId: catCoffee, name: "Espresso", sku: "BEV-001", barcode: "899001", price: 18000, taxRate: 0.11, isRecipeBased: true, isActive: true, description: "Single shot" },
     { id: "p2", categoryId: catCoffee, name: "Latte", sku: "BEV-002", barcode: "899002", price: 32000, taxRate: 0.11, isRecipeBased: true, isActive: true },
     { id: "p3", categoryId: catCoffee, name: "Cappuccino", sku: "BEV-003", barcode: "899003", price: 30000, taxRate: 0.11, isRecipeBased: true, isActive: true },
-    { id: "p4", categoryId: catFood, name: "Croissant", sku: "FD-001", barcode: "899101", price: 22000, taxRate: 0.11, isRecipeBased: false, isActive: true },
+    { id: "p4", categoryId: catFood, inventoryItemId: "i6", name: "Croissant", sku: "FD-001", barcode: "899101", price: 22000, taxRate: 0.11, isRecipeBased: false, isActive: true },
     { id: "p5", categoryId: catFood, name: "Kentang Goreng", sku: "FD-002", barcode: "899102", price: 25000, taxRate: 0.11, isRecipeBased: true, isActive: true },
-    { id: "p6", categoryId: catRetail, name: "Tumbler Kentang", sku: "RTL-001", barcode: "899201", price: 89000, taxRate: 0.11, isRecipeBased: false, isActive: true },
+    { id: "p6", categoryId: catRetail, inventoryItemId: "i7", name: "Tumbler Kentang", sku: "RTL-001", barcode: "899201", price: 89000, taxRate: 0.11, isRecipeBased: false, isActive: true },
     { id: "p7", categoryId: catCoffee, name: "Americano", sku: "BEV-004", price: 20000, taxRate: 0.11, isRecipeBased: true, isActive: true },
-    { id: "p8", categoryId: catFood, name: "Sandwich Club", sku: "FD-003", price: 45000, taxRate: 0.11, isRecipeBased: false, isActive: true },
+    { id: "p8", categoryId: catFood, inventoryItemId: "i10", name: "Sandwich Club", sku: "FD-003", price: 45000, taxRate: 0.11, isRecipeBased: false, isActive: true },
   ];
 
   const variants = [
@@ -41,10 +41,11 @@ export function createMockSeed(): AppData {
     { id: "i3", type: "raw_material" as const, sku: "RM-003", name: "Oat milk", baseUnit: "ml", trackStock: true, trackExpiry: true, fifoCosting: true, reorderPoint: 5000, isActive: true },
     { id: "i4", type: "raw_material" as const, sku: "RM-004", name: "Potato fresh", baseUnit: "g", trackStock: true, trackExpiry: true, fifoCosting: true, reorderPoint: 8000, isActive: true },
     { id: "i5", type: "semi_finished_good" as const, sku: "SF-001", name: "Croissant dough batch", baseUnit: "pcs", trackStock: true, trackExpiry: true, fifoCosting: true, reorderPoint: 20, isActive: true },
-    { id: "i6", type: "finished_good" as const, sku: "FG-001", name: "Croissant baked", baseUnit: "pcs", trackStock: true, trackExpiry: true, fifoCosting: true, isActive: true },
+    { id: "i6", type: "retail_good" as const, sku: "FG-001", name: "Croissant baked", baseUnit: "pcs", trackStock: true, trackExpiry: true, fifoCosting: true, isActive: true },
     { id: "i7", type: "retail_good" as const, sku: "RTL-001", name: "Tumbler stock", baseUnit: "pcs", trackStock: true, trackExpiry: false, fifoCosting: true, reorderPoint: 5, isActive: true },
     { id: "i8", type: "supply" as const, sku: "SUP-001", name: "Paper cup 8oz", baseUnit: "pcs", trackStock: true, trackExpiry: false, fifoCosting: true, reorderPoint: 200, isActive: true },
     { id: "i9", type: "service_non_stock" as const, sku: "SVC-001", name: "Delivery fee", baseUnit: "order", trackStock: false, trackExpiry: false, fifoCosting: false, isActive: true },
+    { id: "i10", type: "retail_good" as const, sku: "FD-003", name: "Sandwich Club", baseUnit: "pcs", trackStock: true, trackExpiry: true, fifoCosting: true, reorderPoint: 10, isActive: true },
   ];
 
   const fifoLayers = [
@@ -53,12 +54,14 @@ export function createMockSeed(): AppData {
     { id: "f3", outletId: IDS.outlet1, warehouseId: IDS.warehouse1, inventoryItemId: "i4", quantityReceived: 15000, quantityRemaining: 12000, unitCost: 0.015, receivedAt: now() },
     { id: "f4", outletId: IDS.outlet1, warehouseId: IDS.warehouse1, inventoryItemId: "i7", quantityReceived: 24, quantityRemaining: 18, unitCost: 45000, receivedAt: now() },
     { id: "f5", outletId: IDS.outlet1, warehouseId: IDS.warehouse1, inventoryItemId: "i5", batchCode: "DOUGH-240526", quantityReceived: 30, quantityRemaining: 8, unitCost: 3500, receivedAt: now(), expiresAt: new Date(Date.now() + 86400000).toISOString() },
+    { id: "f6", outletId: IDS.outlet1, warehouseId: IDS.warehouse1, inventoryItemId: "i6", batchCode: "CROISSANT-240601", quantityReceived: 40, quantityRemaining: 12, unitCost: 8500, receivedAt: now(), expiresAt: new Date(Date.now() + 2 * 86400000).toISOString() },
+    { id: "f7", outletId: IDS.outlet1, warehouseId: IDS.warehouse1, inventoryItemId: "i10", batchCode: "SANDWICH-240601", quantityReceived: 20, quantityRemaining: 15, unitCost: 22000, receivedAt: now(), expiresAt: new Date(Date.now() + 86400000).toISOString() },
   ];
 
   const recipes = [
-    { id: "r1", productId: "p1", name: "Espresso shot", version: 1, outputQuantity: 1, outputUnit: "shot", yieldFactor: 1, isActive: true },
+    { id: "r1", productId: "p1", name: "Espresso", version: 1, outputQuantity: 1, outputUnit: "shot", yieldFactor: 1, isActive: true },
     { id: "r2", productId: "p2", name: "Latte", version: 2, outputQuantity: 1, outputUnit: "cup", yieldFactor: 1, isActive: true },
-    { id: "r3", productId: "p5", name: "Kentang goreng portion", version: 1, outputQuantity: 1, outputUnit: "portion", yieldFactor: 0.95, isActive: true },
+    { id: "r3", productId: "p5", name: "Kentang Goreng", version: 1, outputQuantity: 1, outputUnit: "portion", yieldFactor: 0.95, isActive: true },
   ];
 
   const recipeItems = [
@@ -138,6 +141,7 @@ export function createMockSeed(): AppData {
       { id: catFood, name: "Food", sortOrder: 2 },
       { id: catRetail, name: "Retail", sortOrder: 3 },
     ],
+    inventoryCategories: [],
     products,
     variants,
     modifierGroups,

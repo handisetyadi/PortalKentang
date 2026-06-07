@@ -6,7 +6,7 @@ export type AppRole =
   | "finance"
   | "operations_manager"
   | "commercial_analyst"
-  | "company_admin";
+  | "company_owner";
 
 export type InventoryItemType =
   | "raw_material"
@@ -141,5 +141,5 @@ export const ROLE_DEFAULT_ROUTES: Record<AppRole, string> = {
   finance: "/reports",
   operations_manager: "/dashboard",
   commercial_analyst: "/dashboard",
-  company_admin: "/dashboard",
+  company_owner: "/dashboard",
 };

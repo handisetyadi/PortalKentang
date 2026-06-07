@@ -7,12 +7,14 @@ import {
   getInvoicePdfSignedUrl,
   uploadInvoicePdf,
 } from "@/lib/invoices/store-invoice-pdf";
+import { logTransactionDocument } from "@/lib/invoices/log-transaction-document";
 import type { ReceiptSettings, Transaction } from "@/lib/data/types";
 
 type PdfRequestBody = {
   transaction?: Transaction;
   receiptSettings?: ReceiptSettings;
   customerName?: string;
+  signedUrlExpiresInSeconds?: number;
 };
 
 export async function POST(request: Request) {
@@ -61,7 +63,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const pdfUrl = await getInvoicePdfSignedUrl(path);
+    const expiresIn =
+      typeof body.signedUrlExpiresInSeconds === "number" &&
+      body.signedUrlExpiresInSeconds > 0
+        ? Math.min(body.signedUrlExpiresInSeconds, 604800)
+        : 3600;
+    const pdfUrl = await getInvoicePdfSignedUrl(path, expiresIn);
     if (!pdfUrl) {
       return NextResponse.json(
         { ok: false, message: "PDF saved but could not create download link." },
@@ -70,12 +77,13 @@ export async function POST(request: Request) {
     }
 
     const service = createServiceClient();
-    await service.from("receipt_logs").insert({
-      company_id: session.companyId,
-      transaction_id: transaction.id,
-      user_id: session.userId,
-      status: "pdf_saved",
-      error_message: null,
+    await logTransactionDocument(service, {
+      companyId: session.companyId,
+      transactionId: transaction.id,
+      channel: "pdf",
+      status: "saved",
+      metadata: { storagePath: path },
+      sentBy: session.userId,
     });
 
     return NextResponse.json({
@@ -109,13 +117,13 @@ export async function GET(request: Request) {
       const service = createServiceClient();
       const { data } = await service
         .from("transactions")
-        .select("sync_metadata")
+        .select("invoice_pdf_path, sync_metadata")
         .eq("id", transactionId)
         .eq("company_id", session.companyId)
         .maybeSingle();
 
       const meta = data?.sync_metadata as { invoicePdfPath?: string } | null;
-      path = meta?.invoicePdfPath ?? null;
+      path = data?.invoice_pdf_path ?? meta?.invoicePdfPath ?? null;
     }
 
     if (!path) {

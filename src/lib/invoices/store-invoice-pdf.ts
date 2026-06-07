@@ -29,27 +29,9 @@ export async function uploadInvoicePdf(
     return { path, error: error.message };
   }
 
-  const { data: existing } = await service
-    .from("transactions")
-    .select("sync_metadata")
-    .eq("id", transactionId)
-    .eq("company_id", companyId)
-    .maybeSingle();
-
-  const prior =
-    existing?.sync_metadata && typeof existing.sync_metadata === "object"
-      ? (existing.sync_metadata as Record<string, unknown>)
-      : {};
-
   await service
     .from("transactions")
-    .update({
-      sync_metadata: {
-        ...prior,
-        invoicePdfPath: path,
-        invoicePdfUploadedAt: new Date().toISOString(),
-      },
-    })
+    .update({ invoice_pdf_path: path })
     .eq("id", transactionId)
     .eq("company_id", companyId);
 

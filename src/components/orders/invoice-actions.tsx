@@ -9,7 +9,7 @@ import { getMemberInvoiceOptions } from "@/lib/customers/member-invoice-eligibil
 import {
   printInvoiceWithPdf,
   sendInvoiceEmail,
-  sendInvoiceWhatsApp,
+  shareInvoiceViaWhatsApp,
 } from "@/lib/invoices/deliver-invoice";
 import type { Customer, ReceiptSettings, Transaction } from "@/lib/data/types";
 import { toast } from "@/hooks/use-toast";
@@ -71,14 +71,25 @@ export function InvoiceActions({
   };
 
   const handleWhatsApp = async () => {
-    if (!member.canWhatsApp) return;
+    if (!member.canWhatsApp || !customer?.phone) return;
     setBusy("whatsapp");
     try {
-      const result = await sendInvoiceWhatsApp(payload);
+      const result = await shareInvoiceViaWhatsApp({
+        transaction,
+        receiptSettings,
+        phone: customer.phone,
+        customerName: customer.name,
+      });
       toast({
-        title: result.ok ? "WhatsApp sent" : "WhatsApp failed",
+        title: result.ok ? "WhatsApp dibuka" : "WhatsApp gagal",
         description: result.message,
         variant: result.ok ? "default" : "destructive",
+      });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "WhatsApp gagal",
+        description: "Tidak dapat membuka WhatsApp.",
       });
     } finally {
       setBusy(null);
@@ -121,7 +132,7 @@ export function InvoiceActions({
           title={member.whatsAppHint}
         >
           <MessageCircle className="mr-2 h-4 w-4" />
-          {busy === "whatsapp" ? "Sending…" : "Send WhatsApp invoice"}
+          {busy === "whatsapp" ? "Menyiapkan PDF…" : "Kirim invoice via WhatsApp"}
         </Button>
       </PermissionGate>
       {customer && (!member.canEmail || !member.canWhatsApp) && (

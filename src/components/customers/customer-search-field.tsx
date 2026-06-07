@@ -104,7 +104,7 @@ export function CustomerSearchField({
 
       {open && (
         <ul
-          className="max-h-40 space-y-0.5 overflow-y-auto rounded-md border bg-popover p-1 text-sm shadow-md"
+          className="relative z-10 max-h-40 space-y-0.5 overflow-y-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-lg"
           role="listbox"
         >
           {results.showWalkIn && (

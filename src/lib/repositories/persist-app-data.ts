@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppData } from "@/lib/data/types";
+import { receiptToJson } from "./company-settings";
 import { throwIfError } from "./base";
 
 export async function persistAppData(
@@ -12,15 +13,48 @@ export async function persistAppData(
     .update({ name: data.company.name, accent_color: data.company.accentColor })
     .eq("id", companyId);
 
-  if (data.receiptSettings) {
-    const { error } = await supabase.from("receipt_settings").upsert({
+  // Inventory rows must exist before products that reference inventory_item_id.
+  for (const item of data.inventoryItems) {
+    const { error } = await supabase.from("inventory_items").upsert({
+      id: item.id,
       company_id: companyId,
-      store_name: data.receiptSettings.storeName,
-      paper_width_mm: data.receiptSettings.paperWidthMm,
-      footer_text: data.receiptSettings.footerText,
-      tax_number: data.receiptSettings.taxNumber ?? null,
-      copy_count: data.receiptSettings.copyCount,
-      auto_cut: data.receiptSettings.autoCut,
+      category_id: item.categoryId ?? null,
+      type: item.type,
+      sku: item.sku,
+      barcode: item.barcode ?? null,
+      name: item.name,
+      base_unit: item.baseUnit,
+      track_stock: item.trackStock,
+      track_expiry: item.trackExpiry,
+      fifo_costing: item.fifoCosting,
+      reorder_point: item.reorderPoint ?? null,
+      is_active: item.isActive,
+    });
+    throwIfError(error);
+  }
+
+  for (const p of data.products) {
+    const { error } = await supabase.from("products").upsert({
+      id: p.id,
+      company_id: companyId,
+      category_id: p.categoryId || null,
+      inventory_item_id: p.inventoryItemId ?? null,
+      name: p.name,
+      sku: p.sku,
+      barcode: p.barcode ?? null,
+      description: p.description ?? null,
+      price: p.price,
+      tax_rate: p.taxRate,
+      is_recipe_based: p.isRecipeBased,
+      is_active: p.isActive,
+    });
+    throwIfError(error);
+  }
+
+  if (data.receiptSettings) {
+    const { error } = await supabase.from("company_settings").upsert({
+      company_id: companyId,
+      receipt: receiptToJson(data.receiptSettings),
     });
     throwIfError(error);
   }
@@ -29,7 +63,7 @@ export async function persistAppData(
     const { error } = await supabase.from("recipes").upsert({
       id: recipe.id,
       company_id: companyId,
-      product_id: recipe.productId,
+      product_id: recipe.productId || null,
       product_variant_id: recipe.productVariantId ?? null,
       name: recipe.name,
       version: recipe.version,
@@ -52,6 +86,31 @@ export async function persistAppData(
       unit: item.unit,
       conversion_to_base_factor: item.conversionToBaseFactor,
       is_optional: item.isOptional,
+      substitute_inventory_item_id: item.substituteInventoryItemId ?? null,
+      substitute_quantity: item.substituteQuantity ?? null,
+      substitute_unit: item.substituteUnit ?? null,
+    });
+    throwIfError(error);
+  }
+
+  for (const bp of data.recipeByproducts) {
+    const semiFinishedId = bp.semiFinishedInventoryItemId;
+    const rawMaterialId = bp.rawMaterialInventoryItemId;
+    const primaryId = semiFinishedId ?? rawMaterialId;
+    if (!primaryId) continue;
+
+    const { error } = await supabase.from("recipe_byproducts").upsert({
+      id: bp.id,
+      company_id: companyId,
+      recipe_id: bp.recipeId,
+      inventory_item_id: primaryId,
+      alternate_inventory_item_id:
+        semiFinishedId && rawMaterialId ? rawMaterialId : null,
+      quantity: bp.quantity,
+      unit: bp.unit,
+      conversion_to_base_factor: 1,
+      expiry_days: bp.expiryDays,
+      cost_allocation_percent: bp.costAllocationPercent,
     });
     throwIfError(error);
   }
@@ -87,26 +146,30 @@ export async function persistAppData(
     throwIfError(error);
   }
 
-  for (const entry of data.stockLedger) {
-    const { error } = await supabase.from("stock_ledger").upsert({
-      id: entry.id,
-      company_id: companyId,
-      outlet_id: entry.outletId || null,
-      warehouse_id: entry.warehouseId || null,
-      inventory_item_id: entry.inventoryItemId,
-      movement_type: entry.movementType,
-      quantity_delta: entry.quantityDelta,
-      unit: entry.unit,
-      fifo_cost_layer_id: entry.fifoCostLayerId ?? null,
-      unit_cost: entry.unitCost ?? null,
-      total_cost: entry.totalCost ?? null,
-      batch_code: entry.batchCode ?? null,
-      expires_at: entry.expiresAt ?? null,
-      source_type: entry.sourceType,
-      source_id: entry.sourceId ?? null,
-      notes: entry.notes ?? null,
-      created_at: entry.createdAt,
-    });
+  // Append-only: RLS allows INSERT only (no UPDATE policy); skip existing rows.
+  if (data.stockLedger.length > 0) {
+    const { error } = await supabase.from("stock_ledger").upsert(
+      data.stockLedger.map((entry) => ({
+        id: entry.id,
+        company_id: companyId,
+        outlet_id: entry.outletId || null,
+        warehouse_id: entry.warehouseId || null,
+        inventory_item_id: entry.inventoryItemId,
+        movement_type: entry.movementType,
+        quantity_delta: entry.quantityDelta,
+        unit: entry.unit,
+        fifo_cost_layer_id: entry.fifoCostLayerId ?? null,
+        unit_cost: entry.unitCost ?? null,
+        total_cost: entry.totalCost ?? null,
+        batch_code: entry.batchCode ?? null,
+        expires_at: entry.expiresAt ?? null,
+        source_type: entry.sourceType,
+        source_id: entry.sourceId ?? null,
+        notes: entry.notes ?? null,
+        created_at: entry.createdAt,
+      })),
+      { onConflict: "id", ignoreDuplicates: true }
+    );
     throwIfError(error);
   }
 
@@ -143,6 +206,8 @@ export async function persistAppData(
       total: txn.total,
       fifo_cogs_total: txn.fifoCogsTotal,
       sync_status: txn.syncStatus,
+      cart_note: txn.cartNote ?? null,
+      invoice_pdf_path: txn.invoicePdfPath ?? null,
       completed_at: txn.completedAt ?? null,
     });
     throwIfError(txnErr);
@@ -153,7 +218,9 @@ export async function persistAppData(
         company_id: companyId,
         transaction_id: txn.id,
         product_id: item.productId,
+        product_name: item.productName,
         product_variant_id: item.productVariantId ?? null,
+        variant_name: item.variantName ?? null,
         recipe_id: item.recipeId ?? null,
         recipe_version: item.recipeVersion ?? null,
         quantity: item.quantity,
@@ -162,16 +229,19 @@ export async function persistAppData(
         tax_amount: item.taxAmount,
         line_total: item.lineTotal,
         fifo_cogs: item.fifoCogs,
+        notes: item.notes ?? null,
       });
       throwIfError(itemErr);
 
       await supabase.from("transaction_item_modifiers").delete().eq("transaction_item_id", item.id);
       for (let i = 0; i < item.modifierIds.length; i++) {
+        const mod = data.modifiers.find((m) => m.id === item.modifierIds[i]);
         const { error: modErr } = await supabase.from("transaction_item_modifiers").insert({
           company_id: companyId,
           transaction_item_id: item.id,
           modifier_id: item.modifierIds[i],
-          price_delta: 0,
+          modifier_name: item.modifierNames[i] ?? mod?.name ?? null,
+          price_delta: mod?.priceDelta ?? 0,
         });
         throwIfError(modErr);
       }

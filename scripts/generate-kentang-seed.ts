@@ -56,11 +56,14 @@ const IDS = {
   i7: uuid("i7"),
   i8: uuid("i8"),
   i9: uuid("i9"),
+  i10: uuid("i10"),
   f1: uuid("f1"),
   f2: uuid("f2"),
   f3: uuid("f3"),
   f4: uuid("f4"),
   f5: uuid("f5"),
+  f6: uuid("f6"),
+  f7: uuid("f7"),
   r1: uuid("r1"),
   r2: uuid("r2"),
   r3: uuid("r3"),
@@ -126,21 +129,22 @@ insert into public.inventory_items (id, company_id, type, sku, barcode, name, ba
   (${sql(IDS.i3)}, ${sql(C)}, 'raw_material', 'RM-003', null, 'Oat milk', 'ml', true, true, true, 5000, true),
   (${sql(IDS.i4)}, ${sql(C)}, 'raw_material', 'RM-004', null, 'Potato fresh', 'g', true, true, true, 8000, true),
   (${sql(IDS.i5)}, ${sql(C)}, 'semi_finished_good', 'SF-001', null, 'Croissant dough batch', 'pcs', true, true, true, 20, true),
-  (${sql(IDS.i6)}, ${sql(C)}, 'finished_good', 'FG-001', null, 'Croissant baked', 'pcs', true, true, true, null, true),
+  (${sql(IDS.i6)}, ${sql(C)}, 'retail_good', 'FG-001', null, 'Croissant baked', 'pcs', true, true, true, null, true),
   (${sql(IDS.i7)}, ${sql(C)}, 'retail_good', 'RTL-001', null, 'Tumbler stock', 'pcs', true, false, true, 5, true),
   (${sql(IDS.i8)}, ${sql(C)}, 'supply', 'SUP-001', null, 'Paper cup 8oz', 'pcs', true, false, true, 200, true),
-  (${sql(IDS.i9)}, ${sql(C)}, 'service_non_stock', 'SVC-001', null, 'Delivery fee', 'order', false, false, false, null, true)
+  (${sql(IDS.i9)}, ${sql(C)}, 'service_non_stock', 'SVC-001', null, 'Delivery fee', 'order', false, false, false, null, true),
+  (${sql(IDS.i10)}, ${sql(C)}, 'retail_good', 'FD-003', null, 'Sandwich Club', 'pcs', true, true, true, 10, true)
 on conflict (id) do nothing;
 
-insert into public.products (id, company_id, category_id, name, sku, barcode, description, price, tax_rate, is_recipe_based, is_active) values
-  (${sql(IDS.p1)}, ${sql(C)}, ${sql(IDS.catCoffee)}, 'Espresso', 'BEV-001', '899001', 'Single shot', 18000, 0.11, true, true),
-  (${sql(IDS.p2)}, ${sql(C)}, ${sql(IDS.catCoffee)}, 'Latte', 'BEV-002', '899002', null, 32000, 0.11, true, true),
-  (${sql(IDS.p3)}, ${sql(C)}, ${sql(IDS.catCoffee)}, 'Cappuccino', 'BEV-003', '899003', null, 30000, 0.11, true, true),
-  (${sql(IDS.p4)}, ${sql(C)}, ${sql(IDS.catFood)}, 'Croissant', 'FD-001', '899101', null, 22000, 0.11, false, true),
-  (${sql(IDS.p5)}, ${sql(C)}, ${sql(IDS.catFood)}, 'Kentang Goreng', 'FD-002', '899102', null, 25000, 0.11, true, true),
-  (${sql(IDS.p6)}, ${sql(C)}, ${sql(IDS.catRetail)}, 'Tumbler Kentang', 'RTL-001', '899201', null, 89000, 0.11, false, true),
-  (${sql(IDS.p7)}, ${sql(C)}, ${sql(IDS.catCoffee)}, 'Americano', 'BEV-004', null, null, 20000, 0.11, true, true),
-  (${sql(IDS.p8)}, ${sql(C)}, ${sql(IDS.catFood)}, 'Sandwich Club', 'FD-003', null, null, 45000, 0.11, false, true)
+insert into public.products (id, company_id, category_id, inventory_item_id, name, sku, barcode, description, price, tax_rate, is_recipe_based, is_active) values
+  (${sql(IDS.p1)}, ${sql(C)}, ${sql(IDS.catCoffee)}, null, 'Espresso', 'BEV-001', '899001', 'Single shot', 18000, 0.11, true, true),
+  (${sql(IDS.p2)}, ${sql(C)}, ${sql(IDS.catCoffee)}, null, 'Latte', 'BEV-002', '899002', null, 32000, 0.11, true, true),
+  (${sql(IDS.p3)}, ${sql(C)}, ${sql(IDS.catCoffee)}, null, 'Cappuccino', 'BEV-003', '899003', null, 30000, 0.11, true, true),
+  (${sql(IDS.p4)}, ${sql(C)}, ${sql(IDS.catFood)}, ${sql(IDS.i6)}, 'Croissant', 'FD-001', '899101', null, 22000, 0.11, false, true),
+  (${sql(IDS.p5)}, ${sql(C)}, ${sql(IDS.catFood)}, null, 'Kentang Goreng', 'FD-002', '899102', null, 25000, 0.11, true, true),
+  (${sql(IDS.p6)}, ${sql(C)}, ${sql(IDS.catRetail)}, ${sql(IDS.i7)}, 'Tumbler Kentang', 'RTL-001', '899201', null, 89000, 0.11, false, true),
+  (${sql(IDS.p7)}, ${sql(C)}, ${sql(IDS.catCoffee)}, null, 'Americano', 'BEV-004', null, null, 20000, 0.11, true, true),
+  (${sql(IDS.p8)}, ${sql(C)}, ${sql(IDS.catFood)}, ${sql(IDS.i10)}, 'Sandwich Club', 'FD-003', null, null, 45000, 0.11, false, true)
 on conflict (id) do nothing;
 
 insert into public.product_variants (id, company_id, product_id, name, sku, price_delta, is_active) values
@@ -169,9 +173,9 @@ insert into public.product_modifier_groups (product_id, modifier_group_id) value
 on conflict do nothing;
 
 insert into public.recipes (id, company_id, product_id, name, version, output_quantity, output_unit, yield_factor, is_active) values
-  (${sql(IDS.r1)}, ${sql(C)}, ${sql(IDS.p1)}, 'Espresso shot', 1, 1, 'shot', 1, true),
+  (${sql(IDS.r1)}, ${sql(C)}, ${sql(IDS.p1)}, 'Espresso', 1, 1, 'shot', 1, true),
   (${sql(IDS.r2)}, ${sql(C)}, ${sql(IDS.p2)}, 'Latte', 2, 1, 'cup', 1, true),
-  (${sql(IDS.r3)}, ${sql(C)}, ${sql(IDS.p5)}, 'Kentang goreng portion', 1, 1, 'portion', 0.95, true)
+  (${sql(IDS.r3)}, ${sql(C)}, ${sql(IDS.p5)}, 'Kentang Goreng', 1, 1, 'portion', 0.95, true)
 on conflict (id) do nothing;
 
 insert into public.recipe_items (id, company_id, recipe_id, inventory_item_id, modifier_id, quantity, unit, conversion_to_base_factor, is_optional) values
@@ -187,7 +191,9 @@ insert into public.fifo_cost_layers (id, company_id, outlet_id, warehouse_id, in
   (${sql(IDS.f2)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i2)}, 'MILK-240527', 20000, 8500, 0.008, now()),
   (${sql(IDS.f3)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i4)}, null, 15000, 12000, 0.015, now()),
   (${sql(IDS.f4)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i7)}, null, 24, 18, 45000, now()),
-  (${sql(IDS.f5)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i5)}, 'DOUGH-240526', 30, 8, 3500, now())
+  (${sql(IDS.f5)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i5)}, 'DOUGH-240526', 30, 8, 3500, now()),
+  (${sql(IDS.f6)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i6)}, 'CROISSANT-240601', 40, 12, 8500, now()),
+  (${sql(IDS.f7)}, ${sql(C)}, ${sql(IDS.outlet1)}, ${sql(IDS.warehouse1)}, ${sql(IDS.i10)}, 'SANDWICH-240601', 20, 15, 22000, now())
 on conflict (id) do nothing;
 
 insert into public.customers (id, company_id, brand_id, name, phone, email, tags, whatsapp_opt_in, email_opt_in) values
@@ -202,9 +208,9 @@ insert into public.approval_requests (id, company_id, outlet_id, request_type, s
   (${sql(IDS.apr3)}, ${sql(C)}, ${sql(IDS.outlet1)}, 'stock_adjustment', 'inventory', ${sql(IDS.i2)}, 'pending', 'Spilled milk during prep')
 on conflict (id) do nothing;
 
-insert into public.receipt_settings (id, company_id, store_name, paper_width_mm, footer_text, tax_number, copy_count, auto_cut) values
-  (${sql(IDS.receiptSettings)}, ${sql(C)}, 'Kentang Cafe', 80, 'Terima kasih! Sampai jumpa lagi.', '01.234.567.8-901.000', 1, true)
-on conflict (id) do nothing;
+insert into public.company_settings (company_id, receipt) values
+  (${sql(C)}, '{"storeName":"Kentang Cafe","paperWidthMm":80,"footerText":"Terima kasih! Sampai jumpa lagi.","taxNumber":"01.234.567.8-901.000","copyCount":1,"autoCut":true}'::jsonb)
+on conflict (company_id) do nothing;
 `;
 
 const idsTs = `/** Stable UUIDs for Kentang tenant — generated by scripts/generate-kentang-seed.ts */
@@ -241,11 +247,14 @@ export const LEGACY_ID_MAP: Record<string, string> = {
   i7: IDS.i7,
   i8: IDS.i8,
   i9: IDS.i9,
+  i10: IDS.i10,
   f1: IDS.f1,
   f2: IDS.f2,
   f3: IDS.f3,
   f4: IDS.f4,
   f5: IDS.f5,
+  f6: IDS.f6,
+  f7: IDS.f7,
   r1: IDS.r1,
   r2: IDS.r2,
   r3: IDS.r3,

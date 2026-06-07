@@ -27,6 +27,7 @@ export async function persistSale(
     total: transaction.total,
     fifo_cogs_total: transaction.fifoCogsTotal,
     sync_status: transaction.syncStatus,
+    cart_note: transaction.cartNote ?? null,
     completed_at: transaction.completedAt ?? null,
   });
   throwIfError(txnErr);
@@ -37,7 +38,9 @@ export async function persistSale(
       company_id: companyId,
       transaction_id: transaction.id,
       product_id: item.productId,
+      product_name: item.productName,
       product_variant_id: item.productVariantId ?? null,
+      variant_name: item.variantName ?? null,
       recipe_id: item.recipeId ?? null,
       recipe_version: item.recipeVersion ?? null,
       quantity: item.quantity,
@@ -46,15 +49,18 @@ export async function persistSale(
       tax_amount: item.taxAmount,
       line_total: item.lineTotal,
       fifo_cogs: item.fifoCogs,
+      notes: item.notes ?? null,
     });
     throwIfError(itemErr);
 
     for (let i = 0; i < item.modifierIds.length; i++) {
+      const mod = data.modifiers.find((m) => m.id === item.modifierIds[i]);
       const { error: modErr } = await supabase.from("transaction_item_modifiers").insert({
         company_id: companyId,
         transaction_item_id: item.id,
         modifier_id: item.modifierIds[i],
-        price_delta: 0,
+        modifier_name: item.modifierNames[i] ?? mod?.name ?? null,
+        price_delta: mod?.priceDelta ?? 0,
       });
       throwIfError(modErr);
     }

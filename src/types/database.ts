@@ -198,6 +198,38 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          company_id: string
+          integrations: Json
+          printer: Json
+          receipt: Json
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          integrations?: Json
+          printer?: Json
+          receipt?: Json
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          integrations?: Json
+          printer?: Json
+          receipt?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           birthday: string | null
@@ -396,37 +428,31 @@ export type Database = {
           },
         ]
       }
-      integration_settings: {
+      inventory_categories: {
         Row: {
           company_id: string
-          config: Json
           created_at: string
           id: string
-          is_enabled: boolean
-          provider: string
-          updated_at: string
+          name: string
+          sort_order: number
         }
         Insert: {
           company_id: string
-          config?: Json
           created_at?: string
           id?: string
-          is_enabled?: boolean
-          provider: string
-          updated_at?: string
+          name: string
+          sort_order?: number
         }
         Update: {
           company_id?: string
-          config?: Json
           created_at?: string
           id?: string
-          is_enabled?: boolean
-          provider?: string
-          updated_at?: string
+          name?: string
+          sort_order?: number
         }
         Relationships: [
           {
-            foreignKeyName: "integration_settings_company_id_fkey"
+            foreignKeyName: "inventory_categories_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -497,7 +523,7 @@ export type Database = {
             foreignKeyName: "inventory_items_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
-            referencedRelation: "product_categories"
+            referencedRelation: "inventory_categories"
             referencedColumns: ["id"]
           },
           {
@@ -505,80 +531,6 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      invoice_delivery_logs: {
-        Row: {
-          channel: Database["public"]["Enums"]["delivery_channel"]
-          company_id: string
-          created_at: string
-          customer_id: string | null
-          error_message: string | null
-          id: string
-          provider_message_id: string | null
-          recipient: string
-          sent_by: string | null
-          status: Database["public"]["Enums"]["delivery_status"]
-          transaction_id: string
-          updated_at: string
-        }
-        Insert: {
-          channel: Database["public"]["Enums"]["delivery_channel"]
-          company_id: string
-          created_at?: string
-          customer_id?: string | null
-          error_message?: string | null
-          id?: string
-          provider_message_id?: string | null
-          recipient: string
-          sent_by?: string | null
-          status?: Database["public"]["Enums"]["delivery_status"]
-          transaction_id: string
-          updated_at?: string
-        }
-        Update: {
-          channel?: Database["public"]["Enums"]["delivery_channel"]
-          company_id?: string
-          created_at?: string
-          customer_id?: string | null
-          error_message?: string | null
-          id?: string
-          provider_message_id?: string | null
-          recipient?: string
-          sent_by?: string | null
-          status?: Database["public"]["Enums"]["delivery_status"]
-          transaction_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_delivery_logs_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_delivery_logs_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_delivery_logs_sent_by_fkey"
-            columns: ["sent_by"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_delivery_logs_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -849,51 +801,6 @@ export type Database = {
           },
         ]
       }
-      print_settings: {
-        Row: {
-          company_id: string
-          esc_pos_mode: string | null
-          id: string
-          outlet_id: string | null
-          printer_name: string | null
-          updated_at: string
-          use_qz_tray: boolean
-        }
-        Insert: {
-          company_id: string
-          esc_pos_mode?: string | null
-          id?: string
-          outlet_id?: string | null
-          printer_name?: string | null
-          updated_at?: string
-          use_qz_tray?: boolean
-        }
-        Update: {
-          company_id?: string
-          esc_pos_mode?: string | null
-          id?: string
-          outlet_id?: string | null
-          printer_name?: string | null
-          updated_at?: string
-          use_qz_tray?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "print_settings_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "print_settings_outlet_id_fkey"
-            columns: ["outlet_id"]
-            isOneToOne: false
-            referencedRelation: "outlets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       product_categories: {
         Row: {
           company_id: string
@@ -1074,110 +981,9 @@ export type Database = {
           },
         ]
       }
-      receipt_logs: {
-        Row: {
-          company_id: string
-          created_at: string
-          error_message: string | null
-          id: string
-          printer_name: string | null
-          status: string
-          transaction_id: string
-          user_id: string | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          printer_name?: string | null
-          status: string
-          transaction_id: string
-          user_id?: string | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          printer_name?: string | null
-          status?: string
-          transaction_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "receipt_logs_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipt_logs_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipt_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      receipt_settings: {
-        Row: {
-          auto_cut: boolean
-          company_id: string
-          copy_count: number
-          footer_text: string | null
-          id: string
-          logo_url: string | null
-          paper_width_mm: number
-          store_name: string
-          tax_number: string | null
-          updated_at: string
-        }
-        Insert: {
-          auto_cut?: boolean
-          company_id: string
-          copy_count?: number
-          footer_text?: string | null
-          id?: string
-          logo_url?: string | null
-          paper_width_mm?: number
-          store_name: string
-          tax_number?: string | null
-          updated_at?: string
-        }
-        Update: {
-          auto_cut?: boolean
-          company_id?: string
-          copy_count?: number
-          footer_text?: string | null
-          id?: string
-          logo_url?: string | null
-          paper_width_mm?: number
-          store_name?: string
-          tax_number?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "receipt_settings_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: true
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       recipe_byproducts: {
         Row: {
+          alternate_inventory_item_id: string | null
           company_id: string
           conversion_to_base_factor: number
           cost_allocation_percent: number
@@ -1189,6 +995,7 @@ export type Database = {
           unit: string
         }
         Insert: {
+          alternate_inventory_item_id?: string | null
           company_id: string
           conversion_to_base_factor?: number
           cost_allocation_percent?: number
@@ -1200,6 +1007,7 @@ export type Database = {
           unit: string
         }
         Update: {
+          alternate_inventory_item_id?: string | null
           company_id?: string
           conversion_to_base_factor?: number
           cost_allocation_percent?: number
@@ -1211,6 +1019,13 @@ export type Database = {
           unit?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "recipe_byproducts_alternate_inventory_item_id_fkey"
+            columns: ["alternate_inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recipe_byproducts_company_id_fkey"
             columns: ["company_id"]
@@ -1244,6 +1059,9 @@ export type Database = {
           modifier_id: string | null
           quantity: number
           recipe_id: string
+          substitute_inventory_item_id: string | null
+          substitute_quantity: number | null
+          substitute_unit: string | null
           unit: string
         }
         Insert: {
@@ -1255,6 +1073,9 @@ export type Database = {
           modifier_id?: string | null
           quantity: number
           recipe_id: string
+          substitute_inventory_item_id?: string | null
+          substitute_quantity?: number | null
+          substitute_unit?: string | null
           unit: string
         }
         Update: {
@@ -1266,6 +1087,9 @@ export type Database = {
           modifier_id?: string | null
           quantity?: number
           recipe_id?: string
+          substitute_inventory_item_id?: string | null
+          substitute_quantity?: number | null
+          substitute_unit?: string | null
           unit?: string
         }
         Relationships: [
@@ -1295,6 +1119,13 @@ export type Database = {
             columns: ["recipe_id"]
             isOneToOne: false
             referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_items_substitute_inventory_item_id_fkey"
+            columns: ["substitute_inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1664,11 +1495,83 @@ export type Database = {
           },
         ]
       }
+      transaction_document_logs: {
+        Row: {
+          channel: Database["public"]["Enums"]["document_channel"]
+          company_id: string
+          created_at: string
+          customer_id: string | null
+          error_message: string | null
+          id: string
+          metadata: Json
+          recipient: string | null
+          sent_by: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["document_channel"]
+          company_id: string
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          recipient?: string | null
+          sent_by?: string | null
+          status: string
+          transaction_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["document_channel"]
+          company_id?: string
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          recipient?: string | null
+          sent_by?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_document_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_document_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_document_logs_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_document_logs_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_item_modifiers: {
         Row: {
           company_id: string
           id: string
           modifier_id: string
+          modifier_name: string | null
           price_delta: number
           transaction_item_id: string
         }
@@ -1676,6 +1579,7 @@ export type Database = {
           company_id: string
           id?: string
           modifier_id: string
+          modifier_name?: string | null
           price_delta?: number
           transaction_item_id: string
         }
@@ -1683,6 +1587,7 @@ export type Database = {
           company_id?: string
           id?: string
           modifier_id?: string
+          modifier_name?: string | null
           price_delta?: number
           transaction_item_id?: string
         }
@@ -1719,6 +1624,7 @@ export type Database = {
           line_total: number
           notes: string | null
           product_id: string
+          product_name: string | null
           product_variant_id: string | null
           quantity: number
           recipe_id: string | null
@@ -1726,6 +1632,7 @@ export type Database = {
           tax_amount: number
           transaction_id: string
           unit_price: number
+          variant_name: string | null
         }
         Insert: {
           company_id: string
@@ -1735,6 +1642,7 @@ export type Database = {
           line_total: number
           notes?: string | null
           product_id: string
+          product_name?: string | null
           product_variant_id?: string | null
           quantity: number
           recipe_id?: string | null
@@ -1742,6 +1650,7 @@ export type Database = {
           tax_amount?: number
           transaction_id: string
           unit_price: number
+          variant_name?: string | null
         }
         Update: {
           company_id?: string
@@ -1751,6 +1660,7 @@ export type Database = {
           line_total?: number
           notes?: string | null
           product_id?: string
+          product_name?: string | null
           product_variant_id?: string | null
           quantity?: number
           recipe_id?: string | null
@@ -1758,6 +1668,7 @@ export type Database = {
           tax_amount?: number
           transaction_id?: string
           unit_price?: number
+          variant_name?: string | null
         }
         Relationships: [
           {
@@ -1799,6 +1710,7 @@ export type Database = {
       }
       transactions: {
         Row: {
+          cart_note: string | null
           cashier_id: string
           company_id: string
           completed_at: string | null
@@ -1807,6 +1719,7 @@ export type Database = {
           discount_total: number
           fifo_cogs_total: number
           id: string
+          invoice_pdf_path: string | null
           local_id: string | null
           outlet_id: string
           pos_session_id: string | null
@@ -1819,6 +1732,7 @@ export type Database = {
           total: number
         }
         Insert: {
+          cart_note?: string | null
           cashier_id: string
           company_id: string
           completed_at?: string | null
@@ -1827,6 +1741,7 @@ export type Database = {
           discount_total?: number
           fifo_cogs_total?: number
           id?: string
+          invoice_pdf_path?: string | null
           local_id?: string | null
           outlet_id: string
           pos_session_id?: string | null
@@ -1839,6 +1754,7 @@ export type Database = {
           total?: number
         }
         Update: {
+          cart_note?: string | null
           cashier_id?: string
           company_id?: string
           completed_at?: string | null
@@ -1847,6 +1763,7 @@ export type Database = {
           discount_total?: number
           fifo_cogs_total?: number
           id?: string
+          invoice_pdf_path?: string | null
           local_id?: string | null
           outlet_id?: string
           pos_session_id?: string | null
@@ -2102,10 +2019,11 @@ export type Database = {
         | "finance"
         | "operations_manager"
         | "commercial_analyst"
-        | "company_admin"
+        | "company_owner"
       approval_status: "pending" | "approved" | "rejected" | "cancelled"
       delivery_channel: "email" | "whatsapp"
       delivery_status: "pending" | "sent" | "failed" | "delivered" | "read"
+      document_channel: "print" | "pdf" | "email" | "whatsapp"
       inventory_item_type:
         | "raw_material"
         | "semi_finished_good"
@@ -2267,11 +2185,12 @@ export const Constants = {
         "finance",
         "operations_manager",
         "commercial_analyst",
-        "company_admin",
+        "company_owner",
       ],
       approval_status: ["pending", "approved", "rejected", "cancelled"],
       delivery_channel: ["email", "whatsapp"],
       delivery_status: ["pending", "sent", "failed", "delivered", "read"],
+      document_channel: ["print", "pdf", "email", "whatsapp"],
       inventory_item_type: [
         "raw_material",
         "semi_finished_good",

@@ -27,7 +27,9 @@ import { completeSale } from "@/lib/pos/complete-sale";
 import { buildPaymentsFromCart } from "@/stores/cart-store";
 import { enqueueSync } from "@/lib/offline/sync-engine";
 import { formatCurrency, generateLocalId } from "@/lib/utils";
+import { projectCartAfterAdd } from "@/lib/pos/cart-lines";
 import { getCartTotals } from "@/lib/pos/pricing";
+import { validateCartStock } from "@/lib/pos/stock-availability";
 import type { CartLine } from "@/types/domain";
 import { IDS } from "@/lib/data/ids";
 import type { Product } from "@/lib/data/types";
@@ -40,13 +42,15 @@ import type { Customer, Transaction } from "@/lib/data/types";
 export function PosScreen() {
   const { data, persist, persistSale, loading } = useAppData();
   const { session } = useAuth();
-  const { lines, addLine, clear, getTotal, customerId } = useCartStore();
+  const { lines, addLine, clear, getTotal, customerId, cartNote } = useCartStore();
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [pickerProduct, setPickerProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>();
   const [selectedModifiers, setSelectedModifiers] = useState<string[]>([]);
+  const [pickerLineNote, setPickerLineNote] = useState("");
+  const [pickerQuantity, setPickerQuantity] = useState("1");
   const [completedSale, setCompletedSale] = useState<{
     transaction: Transaction;
     customer?: Customer;
@@ -76,6 +80,11 @@ export function PosScreen() {
     });
   }, [data, categoryId, search]);
 
+  const parsedPickerQuantity = useMemo(() => {
+    const n = Math.floor(Number(pickerQuantity));
+    return Number.isFinite(n) && n >= 1 ? n : 1;
+  }, [pickerQuantity]);
+
   const pickerPreviewLine = useMemo((): CartLine | null => {
     if (!pickerProduct || !data) return null;
     const variant = data.variants.find((v) => v.id === selectedVariant);
@@ -91,19 +100,48 @@ export function PosScreen() {
       variantName: variant?.name,
       modifierIds: selectedModifiers,
       modifierNames: [],
-      quantity: 1,
+      quantity: parsedPickerQuantity,
       unitPrice: pickerProduct.price + (variant?.priceDelta ?? 0),
       modifierPriceTotal,
       discountAmount: 0,
       taxRate: pickerProduct.taxRate,
     };
-  }, [pickerProduct, data, selectedVariant, selectedModifiers]);
+  }, [pickerProduct, data, selectedVariant, selectedModifiers, parsedPickerQuantity]);
 
   const modifierPriceTotal = (modifierIds: string[]) =>
     modifierIds.reduce((sum, id) => {
       const m = data?.modifiers.find((x) => x.id === id);
       return sum + (m?.priceDelta ?? 0);
     }, 0);
+
+  const closePicker = () => {
+    setPickerProduct(null);
+    setPickerLineNote("");
+    setPickerQuantity("1");
+    setSelectedVariant(undefined);
+    setSelectedModifiers([]);
+  };
+
+  const tryAddLine = (incoming: Omit<CartLine, "id">): boolean => {
+    if (!data || !openSession) return false;
+    const projected = projectCartAfterAdd(lines, incoming);
+    const check = validateCartStock(
+      data,
+      projected,
+      openSession.outletId,
+      incoming.productName
+    );
+    if (!check.ok) {
+      toast({
+        variant: "destructive",
+        title: "Stok habis",
+        description: check.message,
+      });
+      return false;
+    }
+    addLine(incoming);
+    return true;
+  };
 
   const handleProductSelect = (product: Product) => {
     const groups = data?.modifierGroups.filter((g) => g.productIds.includes(product.id)) ?? [];
@@ -112,9 +150,12 @@ export function PosScreen() {
       setPickerProduct(product);
       setSelectedVariant(productVariants[0]?.id);
       setSelectedModifiers([]);
+      setPickerLineNote("");
+      setPickerQuantity("1");
       return;
     }
-    addLine({
+    const recipe = data?.recipes.find((r) => r.productId === product.id && r.isActive);
+    tryAddLine({
       productId: product.id,
       productName: product.name,
       modifierIds: [],
@@ -124,34 +165,49 @@ export function PosScreen() {
       modifierPriceTotal: 0,
       discountAmount: 0,
       taxRate: product.taxRate,
-      recipeId: data?.recipes.find((r) => r.productId === product.id)?.id,
-      recipeVersion: data?.recipes.find((r) => r.productId === product.id)?.version,
+      recipeId: recipe?.id,
+      recipeVersion: recipe?.version,
     });
   };
 
   const confirmPicker = () => {
     if (!pickerProduct || !data) return;
+    const quantity = Math.floor(Number(pickerQuantity));
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      toast({
+        variant: "destructive",
+        title: "Jumlah tidak valid",
+        description: "Masukkan jumlah minimal 1.",
+      });
+      return;
+    }
     const variant = data.variants.find((v) => v.id === selectedVariant);
     const modNames = selectedModifiers
       .map((id) => data.modifiers.find((m) => m.id === id)?.name)
       .filter(Boolean) as string[];
-    const recipe = data.recipes.find((r) => r.productId === pickerProduct.id);
-    addLine({
-      productId: pickerProduct.id,
-      productName: pickerProduct.name,
-      variantId: variant?.id,
-      variantName: variant?.name,
-      modifierIds: selectedModifiers,
-      modifierNames: modNames,
-      quantity: 1,
-      unitPrice: pickerProduct.price + (variant?.priceDelta ?? 0),
-      modifierPriceTotal: modifierPriceTotal(selectedModifiers),
-      discountAmount: 0,
-      taxRate: pickerProduct.taxRate,
-      recipeId: recipe?.id,
-      recipeVersion: recipe?.version,
-    });
-    setPickerProduct(null);
+    const recipe = data.recipes.find(
+      (r) => r.productId === pickerProduct.id && r.isActive
+    );
+    if (
+      tryAddLine({
+        productId: pickerProduct.id,
+        productName: pickerProduct.name,
+        variantId: variant?.id,
+        variantName: variant?.name,
+        modifierIds: selectedModifiers,
+        modifierNames: modNames,
+        quantity,
+        unitPrice: pickerProduct.price + (variant?.priceDelta ?? 0),
+        modifierPriceTotal: modifierPriceTotal(selectedModifiers),
+        discountAmount: 0,
+        taxRate: pickerProduct.taxRate,
+        recipeId: recipe?.id,
+        recipeVersion: recipe?.version,
+        notes: pickerLineNote.trim() || undefined,
+      })
+    ) {
+      closePicker();
+    }
   };
 
   const handleComplete = async (method: string) => {
@@ -160,6 +216,16 @@ export function PosScreen() {
         variant: "destructive",
         title: "Cannot complete sale",
         description: "POS session or catalog data is not available.",
+      });
+      return;
+    }
+
+    const stockCheck = validateCartStock(data, lines, openSession.outletId);
+    if (!stockCheck.ok) {
+      toast({
+        variant: "destructive",
+        title: "Stok tidak mencukupi",
+        description: stockCheck.message,
       });
       return;
     }
@@ -178,6 +244,7 @@ export function PosScreen() {
         lines,
         payments,
         customerId,
+        cartNote,
         localId: offline ? localId : undefined,
         syncStatus: offline ? "pending" : "synced",
       });
@@ -275,7 +342,7 @@ export function PosScreen() {
         />
       </div>
 
-      <Dialog open={!!pickerProduct} onOpenChange={() => setPickerProduct(null)}>
+      <Dialog open={!!pickerProduct} onOpenChange={(open) => !open && closePicker()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{pickerProduct?.name}</DialogTitle>
@@ -323,6 +390,28 @@ export function PosScreen() {
                     ))}
                 </div>
               ))}
+            <div className="space-y-2">
+              <Label htmlFor="picker-quantity">Jumlah</Label>
+              <Input
+                id="picker-quantity"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={pickerQuantity}
+                onChange={(e) => setPickerQuantity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="picker-line-note">Catatan</Label>
+              <Input
+                id="picker-line-note"
+                placeholder="Opsional, max 50 karakter"
+                value={pickerLineNote}
+                maxLength={50}
+                onChange={(e) => setPickerLineNote(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{pickerLineNote.length}/50</p>
+            </div>
             {pickerPreviewLine && (
               <div className="rounded-md border bg-muted/50 p-3 text-sm">
                 {(() => {

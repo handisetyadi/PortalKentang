@@ -20,7 +20,11 @@ export function StockLedgerView() {
       header: "Item",
       cell: (r) => data.inventoryItems.find((i) => i.id === r.inventoryItemId)?.name ?? r.inventoryItemId,
     },
-    { key: "type", header: "Movement", cell: (r) => r.movementType },
+    {
+      key: "type",
+      header: "Movement",
+      cell: (r) => r.notes?.trim() || r.movementType.replace(/_/g, " "),
+    },
     {
       key: "qty",
       header: "Qty",

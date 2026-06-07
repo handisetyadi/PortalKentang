@@ -34,17 +34,26 @@ export function useAppData() {
     }
   }, [session?.companyId]);
 
+  const saveLocal = useCallback(async (next: AppData) => {
+    await saveAppData(next);
+    setData(next);
+  }, []);
+
   const persist = useCallback(
-    async (next: AppData) => {
+    async (next: AppData): Promise<{ remoteError?: string }> => {
       await saveAppData(next);
       setData(next);
+      let remoteError: string | undefined;
       if (session?.companyId && isSupabaseConfigured()) {
         try {
-          await persistAppDataRemote(next, session.companyId);
+          const remoteResult = await persistAppDataRemote(next, session.companyId);
+          remoteError = remoteResult.error;
         } catch (e) {
+          remoteError = e instanceof Error ? e.message : "Remote persist failed";
           console.warn("Remote persist failed:", e);
         }
       }
+      return { remoteError };
     },
     [session?.companyId]
   );
@@ -75,5 +84,5 @@ export function useAppData() {
     [session?.companyId]
   );
 
-  return { data, loading, error, refresh, persist, persistSale };
+  return { data, loading, error, refresh, saveLocal, persist, persistSale };
 }

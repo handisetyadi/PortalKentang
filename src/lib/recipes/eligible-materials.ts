@@ -12,6 +12,15 @@ export function getRecipeEligibleMaterials(items: InventoryItem[]): InventoryIte
   return items.filter((i) => i.isActive && isRecipeMaterialType(i.type));
 }
 
+/** Semi-finished goods registered in inventory that can be selected as recipe byproducts. */
+export function getRecipeByproductOptions(items: InventoryItem[]): InventoryItem[] {
+  return items.filter((i) => i.isActive && i.type === "semi_finished_good");
+}
+
+export function getRecipeRawMaterialOptions(items: InventoryItem[]): InventoryItem[] {
+  return items.filter((i) => i.isActive && i.type === "raw_material");
+}
+
 export function isKnownInventoryItem(items: InventoryItem[], inventoryItemId: string): boolean {
   return items.some((i) => i.id === inventoryItemId);
 }

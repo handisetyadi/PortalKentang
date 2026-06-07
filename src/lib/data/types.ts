@@ -30,9 +30,16 @@ export interface ProductCategory {
   sortOrder: number;
 }
 
+export interface InventoryCategory {
+  id: string;
+  name: string;
+  sortOrder: number;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
+  inventoryItemId?: string;
   name: string;
   sku: string;
   barcode?: string;
@@ -117,7 +124,7 @@ export interface StockLedgerEntry {
 
 export interface Recipe {
   id: string;
-  productId: string;
+  productId?: string;
   productVariantId?: string;
   name: string;
   version: number;
@@ -131,6 +138,10 @@ export interface RecipeItem {
   id: string;
   recipeId: string;
   inventoryItemId: string;
+  /** Semi-finished good used before raw material when substitute is enabled and stock exists. */
+  substituteInventoryItemId?: string;
+  substituteQuantity?: number;
+  substituteUnit?: string;
   modifierId?: string;
   quantity: number;
   unit: string;
@@ -141,7 +152,10 @@ export interface RecipeItem {
 export interface RecipeByproduct {
   id: string;
   recipeId: string;
-  inventoryItemId: string;
+  /** Consumed first in production when stock is available. */
+  semiFinishedInventoryItemId?: string;
+  /** Used when semi-finished stock is insufficient. */
+  rawMaterialInventoryItemId?: string;
   quantity: number;
   unit: string;
   expiryDays: number;
@@ -222,6 +236,7 @@ export interface Transaction {
   fifoCogsTotal: number;
   syncStatus: "synced" | "pending" | "failed" | "conflict";
   syncMetadata?: Record<string, unknown>;
+  invoicePdfPath?: string;
   cartNote?: string;
   createdAt: string;
   completedAt?: string;
@@ -287,6 +302,7 @@ export interface AppData {
   outlets: Outlet[];
   registers: Register[];
   categories: ProductCategory[];
+  inventoryCategories: InventoryCategory[];
   products: Product[];
   variants: ProductVariant[];
   modifierGroups: ModifierGroup[];

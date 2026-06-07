@@ -2,6 +2,13 @@ import type { ReceiptSettings, Transaction } from "@/lib/data/types";
 import { getPrintAdapter } from "@/lib/print/adapter";
 import type { PrintResult } from "@/lib/print/adapter";
 import { getThermalPrinterService } from "@/lib/thermal-printer/service";
+import {
+  WHATSAPP_PDF_URL_EXPIRY_SECONDS,
+  buildWhatsAppInvoiceMessage,
+  buildWhatsAppUrl,
+  normalizeWhatsAppPhone,
+  openWhatsAppInvoiceShare,
+} from "@/lib/invoices/whatsapp-invoice";
 
 export type InvoiceDeliveryPayload = {
   transactionId: string;
@@ -19,6 +26,51 @@ export type PrintInvoiceResult = {
   storagePath?: string;
   print?: PrintResult;
 };
+
+export async function ensureInvoicePdfUrl(
+  transaction: Transaction,
+  receiptSettings: ReceiptSettings,
+  options?: { customerName?: string; signedUrlExpiresInSeconds?: number }
+): Promise<{ ok: boolean; pdfUrl?: string; storagePath?: string; message?: string }> {
+  try {
+    const res = await fetch("/api/invoices/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transaction,
+        receiptSettings,
+        customerName: options?.customerName,
+        signedUrlExpiresInSeconds: options?.signedUrlExpiresInSeconds,
+      }),
+    });
+
+    const json = (await res.json()) as {
+      ok?: boolean;
+      message?: string;
+      pdfUrl?: string;
+      storagePath?: string;
+    };
+
+    if (!res.ok || !json.ok || !json.pdfUrl) {
+      return {
+        ok: false,
+        message: json.message ?? "Gagal membuat atau menyimpan invoice PDF.",
+      };
+    }
+
+    return {
+      ok: true,
+      pdfUrl: json.pdfUrl,
+      storagePath: json.storagePath,
+      message: json.message,
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Gagal membuat invoice PDF.",
+    };
+  }
+}
 
 export async function printThermalInvoice(
   transaction: Transaction,
@@ -46,35 +98,22 @@ export async function printInvoiceWithPdf(
       : null;
 
   try {
-    const res = await fetch("/api/invoices/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        transaction,
-        receiptSettings,
-        customerName: options?.customerName,
-      }),
+    const pdfResult = await ensureInvoicePdfUrl(transaction, receiptSettings, {
+      customerName: options?.customerName,
     });
 
-    const json = (await res.json()) as {
-      ok?: boolean;
-      message?: string;
-      pdfUrl?: string;
-      storagePath?: string;
-    };
-
-    if (!res.ok || !json.ok || !json.pdfUrl) {
+    if (!pdfResult.ok || !pdfResult.pdfUrl) {
       pdfTab?.close();
       return {
         ok: false,
-        message: json.message ?? "Failed to generate or save invoice PDF.",
+        message: pdfResult.message ?? "Failed to generate or save invoice PDF.",
       };
     }
 
     if (pdfTab) {
-      pdfTab.location.href = json.pdfUrl;
+      pdfTab.location.href = pdfResult.pdfUrl;
     } else {
-      window.open(json.pdfUrl, "_blank", "noopener,noreferrer");
+      window.open(pdfResult.pdfUrl, "_blank", "noopener,noreferrer");
     }
 
     const print: PrintResult =
@@ -96,8 +135,8 @@ export async function printInvoiceWithPdf(
 
     return {
       ok: true,
-      pdfUrl: json.pdfUrl,
-      storagePath: json.storagePath,
+      pdfUrl: pdfResult.pdfUrl,
+      storagePath: pdfResult.storagePath,
       print,
       message: parts.join(" "),
     };
@@ -125,22 +164,78 @@ export async function sendInvoiceEmail(
   };
 }
 
-export async function sendInvoiceWhatsApp(
-  payload: InvoiceDeliveryPayload
-): Promise<{ ok: boolean; message: string; providerMessageId?: string }> {
-  const res = await fetch("/api/invoices/whatsapp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+export async function shareInvoiceViaWhatsApp(params: {
+  transaction: Transaction;
+  receiptSettings: ReceiptSettings;
+  phone?: string;
+  customerName?: string;
+}): Promise<{ ok: boolean; message: string }> {
+  const phone = params.phone?.trim();
+  if (!phone || !normalizeWhatsAppPhone(phone)) {
+    return {
+      ok: false,
+      message: "Nomor WhatsApp pelanggan tidak valid.",
+    };
+  }
+
+  const pdfResult = await ensureInvoicePdfUrl(params.transaction, params.receiptSettings, {
+    customerName: params.customerName,
+    signedUrlExpiresInSeconds: WHATSAPP_PDF_URL_EXPIRY_SECONDS,
   });
-  const json = (await res.json()) as {
-    ok?: boolean;
-    message?: string;
-    providerMessageId?: string;
-  };
+
+  if (!pdfResult.ok || !pdfResult.pdfUrl) {
+    return {
+      ok: false,
+      message: pdfResult.message ?? "Gagal membuat invoice PDF.",
+    };
+  }
+
+  const message = buildWhatsAppInvoiceMessage({
+    transaction: params.transaction,
+    receiptSettings: params.receiptSettings,
+    customerName: params.customerName,
+    pdfUrl: pdfResult.pdfUrl,
+  });
+
+  let url: string;
+  try {
+    url = buildWhatsAppUrl(phone, message);
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Nomor WhatsApp tidak valid.",
+    };
+  }
+
+  if (!openWhatsAppInvoiceShare(url)) {
+    return {
+      ok: false,
+      message: "Popup diblokir. Izinkan popup untuk membuka WhatsApp.",
+    };
+  }
+
+  try {
+    await fetch("/api/invoices/document-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        transactionId: params.transaction.id,
+        channel: "whatsapp",
+        status: "opened",
+        recipient: phone,
+        customerId: params.transaction.customerId,
+        metadata: {
+          pdfUrl: pdfResult.pdfUrl,
+          storagePath: pdfResult.storagePath,
+        },
+      }),
+    });
+  } catch {
+    /* logging must not block share */
+  }
+
   return {
-    ok: Boolean(json.ok),
-    message: json.message ?? (res.ok ? "WhatsApp message queued." : "WhatsApp delivery failed."),
-    providerMessageId: json.providerMessageId,
+    ok: true,
+    message: "WhatsApp dibuka — kirim pesan ke pelanggan.",
   };
 }

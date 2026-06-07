@@ -35,6 +35,6 @@ export function getMemberInvoiceOptions(customer?: Customer): MemberInvoiceOptio
       ? "Customer has no mobile number on file."
       : !customer.whatsappOptIn
         ? "Customer has not opted in to WhatsApp."
-        : `Send to ${customer.phone}`,
+        : `Buka WhatsApp ke ${customer.phone}`,
   };
 }

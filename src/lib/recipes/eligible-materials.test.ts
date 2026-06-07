@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getRecipeByproductOptions,
   getRecipeEligibleMaterials,
   isKnownInventoryItem,
   isRecipeMaterialType,
@@ -56,5 +57,11 @@ describe("eligible-materials", () => {
   it("classifies recipe material types", () => {
     expect(isRecipeMaterialType("raw_material")).toBe(true);
     expect(isRecipeMaterialType("finished_good")).toBe(false);
+  });
+
+  it("lists active semi-finished goods as byproduct options", () => {
+    const activeSemi: InventoryItem = { ...items[2], isActive: true };
+    const byproducts = getRecipeByproductOptions([...items, activeSemi]);
+    expect(byproducts.map((i) => i.id)).toEqual(["c"]);
   });
 });

@@ -105,21 +105,22 @@ async function upsertTenant() {
     { id: IDS.i3, company_id: C, type: "raw_material", sku: "RM-003", name: "Oat milk", base_unit: "ml", track_stock: true, track_expiry: true, fifo_costing: true, reorder_point: 5000, is_active: true },
     { id: IDS.i4, company_id: C, type: "raw_material", sku: "RM-004", name: "Potato fresh", base_unit: "g", track_stock: true, track_expiry: true, fifo_costing: true, reorder_point: 8000, is_active: true },
     { id: IDS.i5, company_id: C, type: "semi_finished_good", sku: "SF-001", name: "Croissant dough batch", base_unit: "pcs", track_stock: true, track_expiry: true, fifo_costing: true, reorder_point: 20, is_active: true },
-    { id: IDS.i6, company_id: C, type: "finished_good", sku: "FG-001", name: "Croissant baked", base_unit: "pcs", track_stock: true, track_expiry: true, fifo_costing: true, is_active: true },
+    { id: IDS.i6, company_id: C, type: "retail_good", sku: "FG-001", name: "Croissant baked", base_unit: "pcs", track_stock: true, track_expiry: true, fifo_costing: true, is_active: true },
     { id: IDS.i7, company_id: C, type: "retail_good", sku: "RTL-001", name: "Tumbler stock", base_unit: "pcs", track_stock: true, track_expiry: false, fifo_costing: true, reorder_point: 5, is_active: true },
     { id: IDS.i8, company_id: C, type: "supply", sku: "SUP-001", name: "Paper cup 8oz", base_unit: "pcs", track_stock: true, track_expiry: false, fifo_costing: true, reorder_point: 200, is_active: true },
     { id: IDS.i9, company_id: C, type: "service_non_stock", sku: "SVC-001", name: "Delivery fee", base_unit: "order", track_stock: false, track_expiry: false, fifo_costing: false, is_active: true },
+    { id: IDS.i10, company_id: C, type: "retail_good", sku: "FD-003", name: "Sandwich Club", base_unit: "pcs", track_stock: true, track_expiry: true, fifo_costing: true, reorder_point: 10, is_active: true },
   ]);
 
   await admin.from("products").upsert([
     { id: IDS.p1, company_id: C, category_id: IDS.catCoffee, name: "Espresso", sku: "BEV-001", barcode: "899001", description: "Single shot", price: 18000, tax_rate: 0.11, is_recipe_based: true, is_active: true },
     { id: IDS.p2, company_id: C, category_id: IDS.catCoffee, name: "Latte", sku: "BEV-002", barcode: "899002", price: 32000, tax_rate: 0.11, is_recipe_based: true, is_active: true },
     { id: IDS.p3, company_id: C, category_id: IDS.catCoffee, name: "Cappuccino", sku: "BEV-003", barcode: "899003", price: 30000, tax_rate: 0.11, is_recipe_based: true, is_active: true },
-    { id: IDS.p4, company_id: C, category_id: IDS.catFood, name: "Croissant", sku: "FD-001", barcode: "899101", price: 22000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
+    { id: IDS.p4, company_id: C, category_id: IDS.catFood, inventory_item_id: IDS.i6, name: "Croissant", sku: "FD-001", barcode: "899101", price: 22000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
     { id: IDS.p5, company_id: C, category_id: IDS.catFood, name: "Kentang Goreng", sku: "FD-002", barcode: "899102", price: 25000, tax_rate: 0.11, is_recipe_based: true, is_active: true },
-    { id: IDS.p6, company_id: C, category_id: IDS.catRetail, name: "Tumbler Kentang", sku: "RTL-001", barcode: "899201", price: 89000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
+    { id: IDS.p6, company_id: C, category_id: IDS.catRetail, inventory_item_id: IDS.i7, name: "Tumbler Kentang", sku: "RTL-001", barcode: "899201", price: 89000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
     { id: IDS.p7, company_id: C, category_id: IDS.catCoffee, name: "Americano", sku: "BEV-004", price: 20000, tax_rate: 0.11, is_recipe_based: true, is_active: true },
-    { id: IDS.p8, company_id: C, category_id: IDS.catFood, name: "Sandwich Club", sku: "FD-003", price: 45000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
+    { id: IDS.p8, company_id: C, category_id: IDS.catFood, inventory_item_id: IDS.i10, name: "Sandwich Club", sku: "FD-003", price: 45000, tax_rate: 0.11, is_recipe_based: false, is_active: true },
   ]);
 
   await admin.from("product_variants").upsert([
@@ -148,9 +149,9 @@ async function upsertTenant() {
   ]);
 
   await admin.from("recipes").upsert([
-    { id: IDS.r1, company_id: C, product_id: IDS.p1, name: "Espresso shot", version: 1, output_quantity: 1, output_unit: "shot", yield_factor: 1, is_active: true },
+    { id: IDS.r1, company_id: C, product_id: IDS.p1, name: "Espresso", version: 1, output_quantity: 1, output_unit: "shot", yield_factor: 1, is_active: true },
     { id: IDS.r2, company_id: C, product_id: IDS.p2, name: "Latte", version: 2, output_quantity: 1, output_unit: "cup", yield_factor: 1, is_active: true },
-    { id: IDS.r3, company_id: C, product_id: IDS.p5, name: "Kentang goreng portion", version: 1, output_quantity: 1, output_unit: "portion", yield_factor: 0.95, is_active: true },
+    { id: IDS.r3, company_id: C, product_id: IDS.p5, name: "Kentang Goreng", version: 1, output_quantity: 1, output_unit: "portion", yield_factor: 0.95, is_active: true },
   ]);
 
   await admin.from("recipe_items").upsert([
@@ -168,6 +169,8 @@ async function upsertTenant() {
     { id: IDS.f3, company_id: C, outlet_id: IDS.outlet1, warehouse_id: IDS.warehouse1, inventory_item_id: IDS.i4, quantity_received: 15000, quantity_remaining: 12000, unit_cost: 0.015, received_at: now },
     { id: IDS.f4, company_id: C, outlet_id: IDS.outlet1, warehouse_id: IDS.warehouse1, inventory_item_id: IDS.i7, quantity_received: 24, quantity_remaining: 18, unit_cost: 45000, received_at: now },
     { id: IDS.f5, company_id: C, outlet_id: IDS.outlet1, warehouse_id: IDS.warehouse1, inventory_item_id: IDS.i5, batch_code: "DOUGH-240526", quantity_received: 30, quantity_remaining: 8, unit_cost: 3500, received_at: now },
+    { id: IDS.f6, company_id: C, outlet_id: IDS.outlet1, warehouse_id: IDS.warehouse1, inventory_item_id: IDS.i6, batch_code: "CROISSANT-240601", quantity_received: 40, quantity_remaining: 12, unit_cost: 8500, received_at: now },
+    { id: IDS.f7, company_id: C, outlet_id: IDS.outlet1, warehouse_id: IDS.warehouse1, inventory_item_id: IDS.i10, batch_code: "SANDWICH-240601", quantity_received: 20, quantity_remaining: 15, unit_cost: 22000, received_at: now },
   ]);
 
   await admin.from("customers").upsert([
@@ -182,15 +185,16 @@ async function upsertTenant() {
     { id: IDS.apr3, company_id: C, outlet_id: IDS.outlet1, request_type: "stock_adjustment", source_type: "inventory", source_id: IDS.i2, status: "pending", reason: "Spilled milk during prep" },
   ]);
 
-  await admin.from("receipt_settings").upsert({
-    id: IDS.receiptSettings,
+  await admin.from("company_settings").upsert({
     company_id: C,
-    store_name: "Kentang Cafe",
-    paper_width_mm: 80,
-    footer_text: "Terima kasih! Sampai jumpa lagi.",
-    tax_number: "01.234.567.8-901.000",
-    copy_count: 1,
-    auto_cut: true,
+    receipt: {
+      storeName: "Kentang Cafe",
+      paperWidthMm: 80,
+      footerText: "Terima kasih! Sampai jumpa lagi.",
+      taxNumber: "01.234.567.8-901.000",
+      copyCount: 1,
+      autoCut: true,
+    },
   });
 }
 
@@ -235,7 +239,7 @@ async function seedAdminUser() {
     "finance",
     "operations_manager",
     "commercial_analyst",
-    "company_admin",
+    "company_owner",
   ] as const;
 
   for (const role of roles) {

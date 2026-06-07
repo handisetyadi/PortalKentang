@@ -200,7 +200,7 @@ export function ThermalPrinterSettingsPanel() {
           <div className="space-y-2">
             <Label>Connection type</Label>
             <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="select-field"
               value={config.connectionType}
               onChange={(e) =>
                 update({
@@ -228,7 +228,7 @@ export function ThermalPrinterSettingsPanel() {
             <div className="space-y-2">
               <Label>Paper width</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="select-field"
                 value={config.paperWidth}
                 onChange={(e) => {
                   const paperWidth = Number(e.target.value) === 58 ? 58 : 80;
@@ -315,7 +315,7 @@ export function ThermalPrinterSettingsPanel() {
             <div className="space-y-2">
               <Label>Baud rate</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="select-field"
                 value={config.serialBaudRate ?? 9600}
                 onChange={(e) => update({ serialBaudRate: Number(e.target.value) })}
               >
@@ -348,7 +348,7 @@ export function ThermalPrinterSettingsPanel() {
             <div className="space-y-2">
               <Label>Select printer</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="select-field"
                 value={config.macAddress ?? ""}
                 onChange={(e) => {
                   const device = devices.find((d) => d.address === e.target.value);

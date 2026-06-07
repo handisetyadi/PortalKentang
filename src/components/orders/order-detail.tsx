@@ -40,6 +40,9 @@ export function OrderDetail({ id }: { id: string }) {
                   {i.modifierNames.length > 0 && (
                     <p className="text-muted-foreground">{i.modifierNames.join(", ")}</p>
                   )}
+                  {i.notes && (
+                    <p className="text-muted-foreground italic">&ldquo;{i.notes}&rdquo;</p>
+                  )}
                 </div>
                 <span className="shrink-0">{formatCurrency(i.lineTotal)}</span>
               </div>
