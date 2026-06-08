@@ -24,7 +24,7 @@ import { buildRecommendations } from "@/lib/analytics/recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Banknote, ShoppingBag, TrendingUp, Percent } from "lucide-react";
+import { Banknote, ShoppingBag, TrendingUp, Percent, Gift, Ticket } from "lucide-react";
 
 const COLORS = ["hsl(var(--primary))", "#94a3b8", "#f59e0b", "#ec4899"];
 
@@ -44,6 +44,12 @@ export function DashboardView() {
         <StatCard title="Transactions" value={m.txnCount} icon={ShoppingBag} />
         <StatCard title="AOV" value={m.aov} format="currency" icon={TrendingUp} />
         <StatCard title="Gross margin" value={m.grossMargin} format="percent" icon={Percent} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Points earned" value={m.pointsEarned} icon={Gift} />
+        <StatCard title="Points redeemed" value={m.pointsRedeemed} icon={Gift} />
+        <StatCard title="Voucher uses" value={m.voucherRedemptionCount} icon={Ticket} />
+        <StatCard title="Voucher discount" value={m.voucherDiscountTotal} format="currency" icon={Ticket} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -102,6 +108,45 @@ export function DashboardView() {
                   <Legend />
                   <Tooltip />
                 </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              chartPlaceholder
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Voucher usage (top 5)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {m.voucherUsageData.length === 0 ? (
+              <p className="text-muted-foreground">No voucher redemptions in this period.</p>
+            ) : (
+              m.voucherUsageData.map((v) => (
+                <div key={v.code} className="flex justify-between border-b py-2">
+                  <span className="font-mono">{v.code}</span>
+                  <span>
+                    {v.count}× · Rp {v.discount.toLocaleString("id-ID")}
+                  </span>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Point redemption trend</CardTitle>
+          </CardHeader>
+          <CardContent className="h-64">
+            {mounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={m.pointRedemptionTrend}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="points" stroke="#f59e0b" strokeWidth={2} />
+                </LineChart>
               </ResponsiveContainer>
             ) : (
               chartPlaceholder

@@ -1,9 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useAppData } from "@/hooks/use-app-data";
 import { toast } from "@/hooks/use-toast";
 import { IDS } from "@/lib/data/ids";
@@ -12,13 +16,55 @@ import { validateCartStock } from "@/lib/pos/stock-availability";
 import { formatCurrency } from "@/lib/utils";
 import { useCartStore } from "@/stores/cart-store";
 import { usePosSessionStore } from "@/stores/pos-session-store";
+import { applyPromotions } from "@/lib/marketing/apply-promotions";
+import { canRedeemPoints } from "@/lib/marketing/loyalty-eligibility";
 
 export function CartPanel() {
   const { data } = useAppData();
   const { activeSession } = usePosSessionStore();
   const outletId = activeSession?.outletId ?? IDS.outlet1;
-  const { lines, cartNote, setCartNote, updateQuantity, removeLine, getSubtotal, getTaxTotal, getTotal } =
-    useCartStore();
+  const {
+    lines,
+    customerId,
+    cartNote,
+    redeemPoints,
+    voucherCode,
+    setCartNote,
+    setRedeemPoints,
+    updateQuantity,
+    removeLine,
+  } = useCartStore();
+
+  const customer = customerId ? data?.customers.find((c) => c.id === customerId) : undefined;
+
+  const promo = useMemo(() => {
+    if (!data || lines.length === 0) return null;
+    return applyPromotions({
+      lines,
+      customer,
+      loyaltyRules: data.loyaltyRules,
+      vouchers: data.vouchers,
+      categories: data.categories,
+      products: data.products,
+      loyaltySettings: data.loyaltySettings,
+      redeemPoints,
+      voucherCode,
+    });
+  }, [data, lines, customer, redeemPoints, voucherCode]);
+
+  const redeemEligible =
+    data &&
+    customer &&
+    canRedeemPoints({
+      lines,
+      rules: data.loyaltyRules,
+      customer,
+      products: data.products,
+      categories: data.categories,
+    });
+
+  const displayLines = promo?.lines ?? lines;
+  const redeemedLineId = promo?.redeemedLineId;
 
   const handleQuantityChange = (lineId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -47,11 +93,18 @@ export function CartPanel() {
         {lines.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Cart is empty</p>
         ) : (
-          lines.map((line) => (
+          displayLines.map((line) => (
             <div key={line.id} className="rounded-lg border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium">{line.productName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{line.productName}</p>
+                    {redeemedLineId === line.id && (
+                      <Badge variant="secondary" className="text-xs">
+                        Redeemed
+                      </Badge>
+                    )}
+                  </div>
                   {line.variantName && (
                     <p className="text-xs text-muted-foreground">{line.variantName}</p>
                   )}
@@ -101,23 +154,59 @@ export function CartPanel() {
       </div>
       <Separator />
       <div className="space-y-2 p-4">
+        {customer && lines.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="redeem-points"
+              checked={redeemPoints}
+              disabled={!redeemEligible}
+              onCheckedChange={(v) => setRedeemPoints(v === true)}
+            />
+            <Label htmlFor="redeem-points" className="text-sm font-normal">
+              Redeem member points
+              {!redeemEligible && (
+                <span className="block text-xs text-muted-foreground">
+                  Tidak ada product eligible atau point tidak cukup
+                </span>
+              )}
+            </Label>
+          </div>
+        )}
         <Input
           placeholder="Cart note"
           value={cartNote ?? ""}
           onChange={(e) => setCartNote(e.target.value)}
         />
         <div className="space-y-1 text-sm">
+          {promo && promo.redeemedLineDiscount > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <span>Point redemption ({promo.pointsRedeemed} pts)</span>
+              <span>-{formatCurrency(promo.redeemedLineDiscount)}</span>
+            </div>
+          )}
+          {promo && promo.voucherDiscount > 0 && (
+            <div className="flex justify-between text-emerald-700">
+              <span>Voucher {promo.voucherCode}</span>
+              <span>-{formatCurrency(promo.voucherDiscount)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatCurrency(getSubtotal())}</span>
+            <span>{formatCurrency(promo?.subtotal ?? 0)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Tax</span>
-            <span>{formatCurrency(getTaxTotal())}</span>
+            <span>{formatCurrency(promo?.taxTotal ?? 0)}</span>
           </div>
+          {customer && promo && promo.pointsEarned > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Points earned (est.)</span>
+              <span>+{promo.pointsEarned} pts</span>
+            </div>
+          )}
           <div className="flex justify-between text-base font-semibold">
             <span>Total</span>
-            <span>{formatCurrency(getTotal())}</span>
+            <span>{formatCurrency(promo?.total ?? 0)}</span>
           </div>
         </div>
       </div>

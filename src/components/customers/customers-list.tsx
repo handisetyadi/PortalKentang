@@ -53,6 +53,7 @@ export function CustomersList() {
         : [],
       whatsappOptIn: false,
       emailOptIn: !!values.email,
+      memberPointsBalance: 0,
       totalSpend: 0,
     };
     await persist({ ...data, customers: [...data.customers, customer] });
@@ -72,6 +73,12 @@ export function CustomersList() {
       ),
     },
     { key: "phone", header: "Phone", cell: (r) => r.phone || "—" },
+    {
+      key: "points",
+      header: "Points",
+      cell: (r) => r.memberPointsBalance,
+      className: "text-right",
+    },
     { key: "tags", header: "Tags", cell: (r) => r.tags.join(", ") || "—" },
     {
       key: "spend",

@@ -23,6 +23,7 @@ import { useAppData } from "@/hooks/use-app-data";
 import { useCartStore } from "@/stores/cart-store";
 import { usePosSessionStore } from "@/stores/pos-session-store";
 import { useAuth } from "@/components/providers/auth-provider";
+import { applyPromotions } from "@/lib/marketing/apply-promotions";
 import { completeSale } from "@/lib/pos/complete-sale";
 import { buildPaymentsFromCart } from "@/stores/cart-store";
 import { enqueueSync } from "@/lib/offline/sync-engine";
@@ -42,7 +43,7 @@ import type { Customer, Transaction } from "@/lib/data/types";
 export function PosScreen() {
   const { data, persist, persistSale, loading } = useAppData();
   const { session } = useAuth();
-  const { lines, addLine, clear, getTotal, customerId, cartNote } = useCartStore();
+  const { lines, addLine, clear, customerId, cartNote, redeemPoints, voucherCode } = useCartStore();
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
@@ -231,8 +232,32 @@ export function PosScreen() {
     }
 
     try {
-      const total = getTotal();
-      const payments = buildPaymentsFromCart(total, method);
+      const saleCustomer = customerId
+        ? data.customers.find((c) => c.id === customerId)
+        : undefined;
+
+      const promo = applyPromotions({
+        lines,
+        customer: saleCustomer,
+        loyaltyRules: data.loyaltyRules,
+        vouchers: data.vouchers,
+        categories: data.categories,
+        products: data.products,
+        loyaltySettings: data.loyaltySettings,
+        redeemPoints,
+        voucherCode,
+      });
+
+      if (promo.voucherError && voucherCode.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Voucher tidak valid",
+          description: promo.voucherError,
+        });
+        return;
+      }
+
+      const payments = buildPaymentsFromCart(promo.total, method);
       const localId = generateLocalId(IDS.outlet1);
       const offline = !navigator.onLine;
 
@@ -241,21 +266,31 @@ export function PosScreen() {
         outletId: openSession.outletId,
         sessionId: openSession.id,
         cashierId: session.userId,
-        lines,
+        lines: promo.lines,
         payments,
         customerId,
         cartNote,
         localId: offline ? localId : undefined,
         syncStatus: offline ? "pending" : "synced",
+        promotion: {
+          loyaltyRuleId: promo.loyaltyRuleId,
+          redeemedProductId: promo.redeemedProductId,
+          pointsRedeemed: promo.pointsRedeemed,
+          redeemedLineDiscount: promo.redeemedLineDiscount,
+          voucherId: promo.voucherId,
+          voucherCode: promo.voucherCode,
+          voucherDiscount: promo.voucherDiscount,
+          pointsEarned: promo.pointsEarned,
+        },
       });
 
       await persistSale(next, transaction);
       if (offline) await enqueueSync("transaction", { localId, transaction });
-      const saleCustomer = customerId
+      const updatedCustomer = customerId
         ? next.customers.find((c) => c.id === customerId)
         : undefined;
       clear();
-      setCompletedSale({ transaction, customer: saleCustomer });
+      setCompletedSale({ transaction, customer: updatedCustomer });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not save the sale.";
       toast({
@@ -335,7 +370,6 @@ export function PosScreen() {
         <CustomerPicker />
         <CartPanel />
         <PaymentPanel
-          total={getTotal()}
           onComplete={handleComplete}
           onHold={handleHold}
           disabled={lines.length === 0}

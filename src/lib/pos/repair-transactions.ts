@@ -1,4 +1,4 @@
-import type { AppData, Transaction, TransactionItem } from "@/lib/data/types";
+import type { AppData, Customer, Transaction, TransactionItem } from "@/lib/data/types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,9 +47,42 @@ function repairTransaction(txn: Transaction): Transaction {
   };
 }
 
+function repairCustomer(customer: Customer): Customer {
+  return {
+    ...customer,
+    memberPointsBalance: customer.memberPointsBalance ?? 0,
+    totalSpend: customer.totalSpend ?? 0,
+    lastTransactionAt: customer.lastTransactionAt ?? customer.lastVisitAt,
+  };
+}
+
+function repairTxnPromoFields(txn: Transaction): Transaction {
+  return {
+    ...txn,
+    voucherDiscount: txn.voucherDiscount ?? 0,
+    pointsRedeemed: txn.pointsRedeemed ?? 0,
+    pointsEarned: txn.pointsEarned ?? 0,
+    redeemedLineDiscount: txn.redeemedLineDiscount ?? 0,
+  };
+}
+
+export function normalizeAppData(data: AppData): AppData {
+  return {
+    ...data,
+    loyaltySettings: data.loyaltySettings ?? { rupiahPerPoint: 1000 },
+    loyaltyRules: data.loyaltyRules ?? [],
+    vouchers: data.vouchers ?? [],
+    voucherRedemptions: data.voucherRedemptions ?? [],
+    loyaltyPointLedger: data.loyaltyPointLedger ?? [],
+    customers: (data.customers ?? []).map(repairCustomer),
+    transactions: (data.transactions ?? []).map((t) => repairTxnPromoFields(repairTransaction(t))),
+  };
+}
+
 export function repairTransactions(data: AppData): AppData {
-  const transactions = data.transactions.map(repairTransaction);
-  const changed = transactions.some((t, i) => t !== data.transactions[i]);
-  if (!changed) return data;
-  return { ...data, transactions };
+  const normalized = normalizeAppData(data);
+  const transactions = normalized.transactions.map(repairTransaction);
+  const changed = transactions.some((t, i) => t !== normalized.transactions[i]);
+  if (!changed && normalized === data) return normalized;
+  return { ...normalized, transactions };
 }

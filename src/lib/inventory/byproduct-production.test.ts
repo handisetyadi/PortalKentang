@@ -126,6 +126,41 @@ describe("produceByproductsForSale via consumeStockForSale", () => {
     ).toBe(false);
   });
 
+  it("produces 20ml byproduct for qty 3 when 2 RM units feed SF for the 3rd", () => {
+    const data = createMockSeed();
+    const { product, dough, milk } = setupRecipeWithSubstituteAndByproduct(data, {
+      byproductQty: 10,
+      substituteQty: 20,
+      primaryQty: 200,
+      sfRemaining: 0,
+      rmRemaining: 10000,
+    });
+
+    const doughBefore = getAvailableQty(data, dough.id, IDS.outlet1);
+    const milkBefore = getAvailableQty(data, milk.id, IDS.outlet1);
+    const txnItemId = crypto.randomUUID();
+    const { data: after } = consumeStockForSale(data, {
+      outletId: IDS.outlet1,
+      warehouseId: IDS.warehouse1,
+      productId: product.id,
+      modifierIds: [],
+      quantity: 3,
+      transactionItemId: txnItemId,
+    });
+
+    expect(getAvailableQty(after, dough.id, IDS.outlet1) - doughBefore).toBe(0);
+    expect(getAvailableQty(after, milk.id, IDS.outlet1) - milkBefore).toBe(-400);
+    const byproductCreated = after.stockLedger
+      .filter(
+        (e) =>
+          e.movementType === "byproduct_creation" &&
+          e.inventoryItemId === dough.id &&
+          e.sourceId === txnItemId
+      )
+      .reduce((sum, e) => sum + e.quantityDelta, 0);
+    expect(byproductCreated).toBe(20);
+  });
+
   it("still produces byproduct when RM fallback is used instead of SF substitute", () => {
     const data = createMockSeed();
     const { product, dough, milk } = setupRecipeWithSubstituteAndByproduct(data, {

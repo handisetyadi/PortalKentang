@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   Receipt,
   ChevronDown,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -38,6 +39,11 @@ const inventoryNav = [
   { href: "/inventory/counts", label: "Stock counts" },
 ];
 
+const marketingNav = [
+  { href: "/marketing/loyalty", label: "Loyalty Program" },
+  { href: "/marketing/vouchers", label: "Vouchers" },
+];
+
 const settingsNav = [
   { href: "/settings/company", label: "Company" },
   { href: "/settings/outlets", label: "Outlets" },
@@ -45,12 +51,14 @@ const settingsNav = [
   { href: "/settings/receipt", label: "Receipt" },
   { href: "/settings/printer", label: "Printer" },
   { href: "/settings/integrations", label: "Integrations" },
+  { href: "/settings/loyalty", label: "Loyalty" },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
   const { session } = useAuth();
   const [invOpen, setInvOpen] = useState(pathname.startsWith("/inventory"));
+  const [mktOpen, setMktOpen] = useState(pathname.startsWith("/marketing"));
   const [setOpen, setSetOpen] = useState(pathname.startsWith("/settings"));
 
   const linkClass = (href: string) =>
@@ -74,6 +82,31 @@ export function SidebarNav() {
             {label}
           </Link>
         ))}
+        <div>
+          <button
+            type="button"
+            onClick={() => setMktOpen(!mktOpen)}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted",
+              pathname.startsWith("/marketing") && "text-foreground"
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <Megaphone className="h-4 w-4" />
+              Marketing
+            </span>
+            <ChevronDown className={cn("h-4 w-4 transition", mktOpen && "rotate-180")} />
+          </button>
+          {mktOpen && (
+            <div className="ml-4 mt-0.5 space-y-0.5 border-l pl-2">
+              {marketingNav.map(({ href, label }) => (
+                <Link key={href} href={href} className={cn(linkClass(href), "py-1.5 text-xs")}>
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
         <div>
           <button
             type="button"

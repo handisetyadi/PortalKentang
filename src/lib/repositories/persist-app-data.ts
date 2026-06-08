@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppData } from "@/lib/data/types";
-import { receiptToJson } from "./company-settings";
+import { loyaltyToJson, receiptToJson } from "./company-settings";
 import { throwIfError } from "./base";
 
 export async function persistAppData(
@@ -51,11 +51,12 @@ export async function persistAppData(
     throwIfError(error);
   }
 
-  if (data.receiptSettings) {
+  if (data.receiptSettings || data.loyaltySettings) {
     const { error } = await supabase.from("company_settings").upsert({
       company_id: companyId,
       receipt: receiptToJson(data.receiptSettings),
-    });
+      loyalty: loyaltyToJson(data.loyaltySettings ?? { rupiahPerPoint: 1000 }),
+    } as Record<string, unknown>);
     throwIfError(error);
   }
 
@@ -125,7 +126,56 @@ export async function persistAppData(
       tags: c.tags,
       whatsapp_opt_in: c.whatsappOptIn,
       email_opt_in: c.emailOptIn,
-    });
+      member_points_balance: c.memberPointsBalance,
+      total_spend: c.totalSpend,
+      last_transaction_at: c.lastTransactionAt ?? null,
+    } as Record<string, unknown>);
+    throwIfError(error);
+  }
+
+  for (const rule of data.loyaltyRules ?? []) {
+    const { error } = await supabase.from("loyalty_redemption_rules").upsert({
+      id: rule.id,
+      company_id: companyId,
+      points_required: rule.pointsRequired,
+      redeem_type: rule.redeemType,
+      product_id: rule.productId ?? null,
+      is_active: rule.isActive,
+    } as Record<string, unknown>);
+    throwIfError(error);
+  }
+
+  const keptVoucherIds = new Set((data.vouchers ?? []).map((v) => v.id));
+  const { data: remoteVouchers, error: remoteVouchersErr } = await supabase
+    .from("vouchers")
+    .select("id")
+    .eq("company_id", companyId);
+  throwIfError(remoteVouchersErr);
+  for (const row of remoteVouchers ?? []) {
+    if (!keptVoucherIds.has(row.id)) {
+      const { error } = await supabase
+        .from("vouchers")
+        .delete()
+        .eq("id", row.id)
+        .eq("company_id", companyId);
+      throwIfError(error);
+    }
+  }
+
+  for (const voucher of data.vouchers ?? []) {
+    const { error } = await supabase.from("vouchers").upsert({
+      id: voucher.id,
+      company_id: companyId,
+      code: voucher.code,
+      discount_type: voucher.discountType,
+      discount_value: voucher.discountValue,
+      min_spend: voucher.minSpend,
+      valid_from: voucher.validFrom,
+      valid_until: voucher.validUntil,
+      max_redemptions: voucher.maxRedemptions ?? null,
+      redemption_count: voucher.redemptionCount,
+      is_active: voucher.isActive,
+    } as Record<string, unknown>);
     throwIfError(error);
   }
 

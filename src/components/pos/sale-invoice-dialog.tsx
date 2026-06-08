@@ -119,41 +119,43 @@ export function SaleInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Sale completed</DialogTitle>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="break-words">Sale completed</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-1 text-sm text-muted-foreground">
-              <p>
+              <p className="break-words">
                 {transaction.receiptNumber} · {formatCurrency(transaction.total)}
               </p>
               {customer ? (
-                <p>
+                <p className="break-words">
                   Customer:{" "}
                   <span className="font-medium text-foreground">{customer.name}</span>
                 </p>
               ) : (
-                <p>Walk-in sale — digital invoice is for members only.</p>
+                <p className="break-words">Walk-in sale — digital invoice is for members only.</p>
               )}
             </div>
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground">How should the invoice be delivered?</p>
+        <p className="break-words text-sm text-muted-foreground">
+          How should the invoice be delivered?
+        </p>
 
-        <div className="grid gap-2">
+        <div className="grid w-full min-w-0 gap-2">
           {canPrint && (
             <Button
               type="button"
               variant="default"
-              className="h-auto justify-start gap-3 py-3"
+              className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-3"
               disabled={busy !== null}
               onClick={handlePrint}
             >
               <Printer className="h-5 w-5 shrink-0" />
-              <div className="text-left">
+              <div className="min-w-0 text-left">
                 <div className="font-medium">Print invoice & receipt</div>
-                <div className="text-xs font-normal opacity-90">
+                <div className="break-words text-xs font-normal opacity-90">
                   PDF opens in a new tab, then direct ESC/POS to thermal printer (Android Bluetooth)
                 </div>
               </div>
@@ -163,37 +165,39 @@ export function SaleInvoiceDialog({
           <Button
             type="button"
             variant="outline"
-            className="h-auto justify-start gap-3 py-3"
+            className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-3"
             disabled={!member.canEmail || busy !== null || !hasPermission("pos.invoice.email")}
             onClick={handleEmail}
           >
             <Mail className="h-5 w-5 shrink-0" />
-            <div className="text-left">
+            <div className="min-w-0 text-left">
               <div className="font-medium">Send email invoice</div>
-              <div className="text-xs font-normal text-muted-foreground">{member.emailHint}</div>
+              <div className="break-words text-xs font-normal text-muted-foreground">
+                {member.emailHint}
+              </div>
             </div>
           </Button>
 
           <Button
             type="button"
             variant="outline"
-            className="h-auto justify-start gap-3 py-3"
+            className="h-auto w-full min-w-0 justify-start gap-3 whitespace-normal py-3"
             disabled={
               !member.canWhatsApp || busy !== null || !hasPermission("pos.invoice.whatsapp")
             }
             onClick={handleWhatsApp}
           >
             <MessageCircle className="h-5 w-5 shrink-0" />
-            <div className="text-left">
+            <div className="min-w-0 text-left">
               <div className="font-medium">Kirim invoice via WhatsApp</div>
-              <div className="text-xs font-normal text-muted-foreground">
+              <div className="break-words text-xs font-normal text-muted-foreground">
                 {busy === "whatsapp" ? "Menyiapkan PDF…" : member.whatsAppHint}
               </div>
             </div>
           </Button>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-col">
+        <DialogFooter className="w-full min-w-0 flex-col gap-2 sm:flex-col">
           <Button type="button" variant="secondary" className="w-full" onClick={() => onOpenChange(false)}>
             {busy ? "Close" : "Done — next sale"}
           </Button>

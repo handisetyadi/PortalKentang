@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppData } from "@/lib/data/types";
 import type { AccentColor } from "@/types/domain";
-import { parseReceiptSettings } from "./company-settings";
+import { parseLoyaltySettings, parseReceiptSettings } from "./company-settings";
 import { throwIfError } from "./base";
 
 export async function hydrateAppData(
@@ -32,6 +32,10 @@ export async function hydrateAppData(
     stockLedgerRes,
     stockCountsRes,
     heldRes,
+    loyaltyRulesRes,
+    vouchersRes,
+    voucherRedemptionsRes,
+    loyaltyLedgerRes,
   ] = await Promise.all([
     supabase.from("companies").select("name, slug, accent_color").eq("id", companyId).single(),
     supabase.from("outlets").select("*").eq("company_id", companyId),
@@ -51,11 +55,15 @@ export async function hydrateAppData(
     supabase.from("pos_sessions").select("*").eq("company_id", companyId),
     supabase.from("transactions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("approval_requests").select("*").eq("company_id", companyId),
-    supabase.from("company_settings").select("receipt, printer, integrations").eq("company_id", companyId).maybeSingle(),
+    supabase.from("company_settings").select("receipt, printer, integrations, loyalty").eq("company_id", companyId).maybeSingle(),
     supabase.from("inventory_categories").select("*").eq("company_id", companyId).order("sort_order"),
     supabase.from("stock_ledger").select("*").eq("company_id", companyId).order("created_at", { ascending: false }).limit(500),
     supabase.from("stock_counts").select("*").eq("company_id", companyId),
     supabase.from("held_orders").select("*").eq("company_id", companyId),
+    supabase.from("loyalty_redemption_rules").select("*").eq("company_id", companyId).order("created_at"),
+    supabase.from("vouchers").select("*").eq("company_id", companyId).order("created_at"),
+    supabase.from("voucher_redemptions").select("*").eq("company_id", companyId).order("redeemed_at", { ascending: false }),
+    supabase.from("loyalty_point_ledger").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
   ]);
 
   throwIfError(companyRes.error);
@@ -78,6 +86,10 @@ export async function hydrateAppData(
   throwIfError(stockLedgerRes.error);
   throwIfError(stockCountsRes.error);
   throwIfError(heldRes.error);
+  throwIfError(loyaltyRulesRes.error);
+  throwIfError(vouchersRes.error);
+  throwIfError(voucherRedemptionsRes.error);
+  throwIfError(loyaltyLedgerRes.error);
 
   const txnIds = (transactionsRes.data ?? []).map((t) => t.id);
   const [itemsRes, paymentsRes] = await Promise.all([
@@ -291,17 +303,26 @@ export async function hydrateAppData(
         costAllocationPercent: Number(bp.cost_allocation_percent),
       };
     }),
-    customers: (customersRes.data ?? []).map((c) => ({
-      id: c.id,
-      name: c.name ?? "",
-      phone: c.phone ?? "",
-      email: c.email ?? undefined,
-      tags: c.tags ?? [],
-      whatsappOptIn: c.whatsapp_opt_in,
-      emailOptIn: c.email_opt_in,
-      totalSpend: 0,
-      lastVisitAt: c.updated_at,
-    })),
+    customers: (customersRes.data ?? []).map((c) => {
+      const row = c as typeof c & {
+        member_points_balance?: number;
+        total_spend?: number;
+        last_transaction_at?: string | null;
+      };
+      return {
+        id: c.id,
+        name: c.name ?? "",
+        phone: c.phone ?? "",
+        email: c.email ?? undefined,
+        tags: c.tags ?? [],
+        whatsappOptIn: c.whatsapp_opt_in,
+        emailOptIn: c.email_opt_in,
+        memberPointsBalance: row.member_points_balance ?? 0,
+        totalSpend: Number(row.total_spend ?? 0),
+        lastTransactionAt: row.last_transaction_at ?? undefined,
+        lastVisitAt: row.last_transaction_at ?? c.updated_at,
+      };
+    }),
     posSessions: (sessionsRes.data ?? []).map((s) => ({
       id: s.id,
       outletId: s.outlet_id,
@@ -359,6 +380,14 @@ export async function hydrateAppData(
         total: Number(t.total),
         fifoCogsTotal: Number(t.fifo_cogs_total),
         syncStatus: t.sync_status as "synced" | "pending" | "failed",
+        voucherId: (t as { voucher_id?: string }).voucher_id ?? undefined,
+        voucherCode: (t as { voucher_code?: string }).voucher_code ?? undefined,
+        voucherDiscount: Number((t as { voucher_discount?: number }).voucher_discount ?? 0),
+        pointsRedeemed: Number((t as { points_redeemed?: number }).points_redeemed ?? 0),
+        pointsEarned: Number((t as { points_earned?: number }).points_earned ?? 0),
+        loyaltyRuleId: (t as { loyalty_rule_id?: string }).loyalty_rule_id ?? undefined,
+        redeemedProductId: (t as { redeemed_product_id?: string }).redeemed_product_id ?? undefined,
+        redeemedLineDiscount: Number((t as { redeemed_line_discount?: number }).redeemed_line_discount ?? 0),
         invoicePdfPath: t.invoice_pdf_path ?? undefined,
         cartNote: t.cart_note ?? undefined,
         createdAt: t.created_at,
@@ -394,5 +423,47 @@ export async function hydrateAppData(
       createdAt: a.created_at,
     })),
     receiptSettings: parseReceiptSettings(companySettingsRes.data, companyRes.data!.name),
+    loyaltySettings: parseLoyaltySettings(companySettingsRes.data),
+    loyaltyRules: (loyaltyRulesRes.data ?? []).map((r) => ({
+      id: r.id,
+      pointsRequired: r.points_required,
+      redeemType: r.redeem_type,
+      productId: r.product_id ?? undefined,
+      isActive: r.is_active,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    })),
+    vouchers: (vouchersRes.data ?? []).map((v) => ({
+      id: v.id,
+      code: v.code,
+      discountType: v.discount_type,
+      discountValue: Number(v.discount_value),
+      minSpend: Number(v.min_spend),
+      validFrom: v.valid_from,
+      validUntil: v.valid_until,
+      maxRedemptions: v.max_redemptions ?? undefined,
+      redemptionCount: v.redemption_count,
+      isActive: v.is_active,
+      createdAt: v.created_at,
+      updatedAt: v.updated_at,
+    })),
+    voucherRedemptions: (voucherRedemptionsRes.data ?? []).map((vr) => ({
+      id: vr.id,
+      voucherId: vr.voucher_id,
+      transactionId: vr.transaction_id,
+      customerId: vr.customer_id ?? undefined,
+      discountApplied: Number(vr.discount_applied),
+      redeemedAt: vr.redeemed_at,
+    })),
+    loyaltyPointLedger: (loyaltyLedgerRes.data ?? []).map((e) => ({
+      id: e.id,
+      customerId: e.customer_id,
+      transactionId: e.transaction_id ?? undefined,
+      type: e.type,
+      pointsDelta: e.points_delta,
+      balanceAfter: e.balance_after,
+      metadata: (e.metadata as Record<string, unknown>) ?? undefined,
+      createdAt: e.created_at,
+    })),
   };
 }

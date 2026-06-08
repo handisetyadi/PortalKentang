@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateCartStock, getLineInventoryDemand } from "./stock-availability";
+import {
+  validateCartStock,
+  getLineInventoryDemand,
+  simulateCartStockConsumption,
+} from "./stock-availability";
+import { getAvailableQty } from "@/lib/inventory/fifo";
 import { createMockSeed } from "@/lib/data/mock-seed";
 import { IDS } from "@/lib/data/ids";
 import type { CartLine } from "@/types/domain";
@@ -136,6 +141,106 @@ describe("validateCartStock with substitute materials", () => {
     expect(validateCartStock(data, [productLine(data, "BEV-002", 1)], IDS.outlet1).ok).toBe(
       false
     );
+  });
+});
+
+describe("sequential cart simulation (byproduct → substitute)", () => {
+  function setupKopKentangLike(data: ReturnType<typeof createMockSeed>) {
+    const product = data.products.find((p) => p.sku === "FD-002")!;
+    const recipe = data.recipes.find((r) => r.productId === product.id)!;
+    recipe.yieldFactor = 1;
+    const milk = data.inventoryItems.find((i) => i.sku === "RM-002")!;
+    const espresso = data.inventoryItems.find((i) => i.type === "semi_finished_good")!;
+
+    data.recipeItems.push({
+      id: crypto.randomUUID(),
+      recipeId: recipe.id,
+      inventoryItemId: milk.id,
+      substituteInventoryItemId: espresso.id,
+      substituteQuantity: 20,
+      substituteUnit: "ml",
+      quantity: 200,
+      unit: "ml",
+      conversionToBaseFactor: 1,
+      isOptional: false,
+    });
+
+    data.recipeByproducts.push({
+      id: crypto.randomUUID(),
+      recipeId: recipe.id,
+      semiFinishedInventoryItemId: espresso.id,
+      quantity: 10,
+      unit: "ml",
+      expiryDays: 7,
+      costAllocationPercent: 0,
+    });
+
+    data.fifoLayers = data.fifoLayers.map((layer) =>
+      layer.inventoryItemId === espresso.id ? { ...layer, quantityRemaining: 0 } : layer
+    );
+
+    return { product, espresso, milk };
+  }
+
+  it("passes 3 units when 2 RM runs produce enough SF for the 3rd (0 SF initial)", () => {
+    const data = createMockSeed();
+    const { product, espresso } = setupKopKentangLike(data);
+    const lines = [1, 2, 3].map((n) => ({
+      ...productLine(data, "FD-002", 1),
+      id: `line-${n}`,
+    }));
+
+    expect(validateCartStock(data, lines, IDS.outlet1).ok).toBe(true);
+
+    const singleLine = [{ ...productLine(data, "FD-002", 3), id: "line-qty-3" }];
+    expect(validateCartStock(data, singleLine, IDS.outlet1).ok).toBe(true);
+
+    const sim = simulateCartStockConsumption(data, lines, IDS.outlet1);
+    expect(sim.ok).toBe(true);
+    if (sim.ok) {
+      expect(getAvailableQty(sim.data, espresso.id, IDS.outlet1)).toBe(0);
+    }
+
+    const simSingle = simulateCartStockConsumption(data, singleLine, IDS.outlet1);
+    expect(simSingle.ok).toBe(true);
+    if (simSingle.ok) {
+      expect(getAvailableQty(simSingle.data, espresso.id, IDS.outlet1)).toBe(0);
+    }
+  });
+
+  it("fails 3 units when RM stock cannot support two full RM productions", () => {
+    const data = createMockSeed();
+    const { product, milk } = setupKopKentangLike(data);
+    data.fifoLayers = data.fifoLayers.map((layer) =>
+      layer.inventoryItemId === milk.id ? { ...layer, quantityRemaining: 200 } : layer
+    );
+
+    const lines = [1, 2, 3].map((n) => ({
+      ...productLine(data, "FD-002", 1),
+      id: `line-${n}`,
+    }));
+
+    expect(validateCartStock(data, lines, IDS.outlet1).ok).toBe(false);
+  });
+
+  it("uses existing SF on later line when 10ml espresso is in stock before sale", () => {
+    const data = createMockSeed();
+    const { product, espresso } = setupKopKentangLike(data);
+    data.fifoLayers = data.fifoLayers.map((layer) =>
+      layer.inventoryItemId === espresso.id ? { ...layer, quantityRemaining: 10 } : layer
+    );
+
+    const lines = [1, 2, 3].map((n) => ({
+      ...productLine(data, "FD-002", 1),
+      id: `line-${n}`,
+    }));
+
+    expect(validateCartStock(data, lines, IDS.outlet1).ok).toBe(true);
+    const sim = simulateCartStockConsumption(data, lines, IDS.outlet1);
+    expect(sim.ok).toBe(true);
+    if (sim.ok) {
+      expect(getAvailableQty(sim.data, espresso.id, IDS.outlet1)).toBe(10);
+    }
   });
 });
 

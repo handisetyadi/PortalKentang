@@ -129,6 +129,8 @@ export const PERMISSION_KEYS = [
   "settings.user.manage",
   "settings.role.manage",
   "settings.integration.manage",
+  "marketing.read",
+  "marketing.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];

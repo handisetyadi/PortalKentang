@@ -23,6 +23,11 @@ export function getAvailableQty(
     .reduce((s, l) => s + l.quantityRemaining, 0);
 }
 
+export type StockShortfall = {
+  inventoryItemId: string;
+  amount: number;
+};
+
 export function consumeStockForSale(
   data: AppData,
   params: {
@@ -34,12 +39,12 @@ export function consumeStockForSale(
     quantity: number;
     transactionItemId: string;
   }
-): { data: AppData; cogs: number } {
+): { data: AppData; cogs: number; shortfall?: StockShortfall } {
   const product = data.products.find((p) => p.id === params.productId);
   if (!product?.isRecipeBased) {
     const inv = resolveProductInventoryItem(data, params.productId);
     if (!inv) return { data, cogs: 0 };
-    return consumeItem(data, {
+    const direct = consumeItem(data, {
       inventoryItemId: inv.id,
       outletId: params.outletId,
       warehouseId: params.warehouseId,
@@ -47,6 +52,13 @@ export function consumeStockForSale(
       sourceType: "transaction_item",
       sourceId: params.transactionItemId,
     });
+    return direct.shortfall > 0
+      ? {
+          data: direct.data,
+          cogs: direct.cogs,
+          shortfall: { inventoryItemId: inv.id, amount: direct.shortfall },
+        }
+      : { data: direct.data, cogs: direct.cogs };
   }
 
   const recipe = data.recipes.find(
@@ -54,52 +66,86 @@ export function consumeStockForSale(
   );
   if (!recipe) return { data, cogs: 0 };
 
-  let next = { ...data };
-  let totalCogs = 0;
-  const items = data.recipeItems.filter((ri) => ri.recipeId === recipe.id);
-  const getItemType = (id: string) => data.inventoryItems.find((i) => i.id === id)?.type;
-  const consumptionContext = {
-    saleQuantity: params.quantity,
-    yieldFactor: recipe.yieldFactor,
-  };
-  const getQty = (id: string) => getAvailableQty(next, id, params.outletId);
-  const sfConsumedIds = new Set<string>();
-
-  for (const ri of items) {
-    if (ri.modifierId && !params.modifierIds.includes(ri.modifierId)) continue;
-    const inventoryItemId = resolveRecipeItemConsumptionId(
-      ri,
-      getQty,
-      getItemType,
-      consumptionContext
-    );
-    const pair = getSubstitutePair(ri, getItemType);
-    if (pair && inventoryItemId === pair.sfId) {
-      sfConsumedIds.add(pair.sfId);
-    }
-    const lineQty = resolveRecipeItemLineQuantity(ri, inventoryItemId);
-    const qty = lineQty * params.quantity * recipe.yieldFactor;
-    const result = consumeItem(next, {
-      inventoryItemId,
-      outletId: params.outletId,
-      warehouseId: params.warehouseId,
-      qty,
-      sourceType: "transaction_item",
-      sourceId: params.transactionItemId,
-    });
-    next = result.data;
-    totalCogs += result.cogs;
-  }
-
-  next = produceByproductsForSale(next, {
-    recipe,
+  return consumeRecipeStockUnits(data, {
     outletId: params.outletId,
     warehouseId: params.warehouseId,
+    recipe,
+    modifierIds: params.modifierIds,
     quantity: params.quantity,
     transactionItemId: params.transactionItemId,
-    materialCogs: totalCogs,
-    suppressOutputItemIds: sfConsumedIds,
   });
+}
+
+/** Consumes recipe stock one sale unit at a time so byproducts credit before the next unit. */
+function consumeRecipeStockUnits(
+  data: AppData,
+  params: {
+    outletId: string;
+    warehouseId: string;
+    recipe: Recipe;
+    modifierIds: string[];
+    quantity: number;
+    transactionItemId: string;
+  }
+): { data: AppData; cogs: number; shortfall?: StockShortfall } {
+  let next = { ...data };
+  let totalCogs = 0;
+  const items = data.recipeItems.filter((ri) => ri.recipeId === params.recipe.id);
+  const getItemType = (id: string) => data.inventoryItems.find((i) => i.id === id)?.type;
+
+  for (let unit = 0; unit < params.quantity; unit++) {
+    const consumptionContext = {
+      saleQuantity: 1,
+      yieldFactor: params.recipe.yieldFactor,
+    };
+    const getQty = (id: string) => getAvailableQty(next, id, params.outletId);
+    const sfConsumedIds = new Set<string>();
+    let unitCogs = 0;
+
+    for (const ri of items) {
+      if (ri.modifierId && !params.modifierIds.includes(ri.modifierId)) continue;
+      const inventoryItemId = resolveRecipeItemConsumptionId(
+        ri,
+        getQty,
+        getItemType,
+        consumptionContext
+      );
+      const pair = getSubstitutePair(ri, getItemType);
+      if (pair && inventoryItemId === pair.sfId) {
+        sfConsumedIds.add(pair.sfId);
+      }
+      const lineQty = resolveRecipeItemLineQuantity(ri, inventoryItemId);
+      const qty = lineQty * params.recipe.yieldFactor;
+      const result = consumeItem(next, {
+        inventoryItemId,
+        outletId: params.outletId,
+        warehouseId: params.warehouseId,
+        qty,
+        sourceType: "transaction_item",
+        sourceId: params.transactionItemId,
+      });
+      if (result.shortfall > 0) {
+        return {
+          data: result.data,
+          cogs: totalCogs + result.cogs,
+          shortfall: { inventoryItemId, amount: result.shortfall },
+        };
+      }
+      next = result.data;
+      unitCogs += result.cogs;
+      totalCogs += result.cogs;
+    }
+
+    next = produceByproductsForSale(next, {
+      recipe: params.recipe,
+      outletId: params.outletId,
+      warehouseId: params.warehouseId,
+      quantity: 1,
+      transactionItemId: params.transactionItemId,
+      materialCogs: unitCogs,
+      suppressOutputItemIds: sfConsumedIds,
+    });
+  }
 
   return { data: next, cogs: totalCogs };
 }
@@ -220,7 +266,7 @@ function consumeItem(
     sourceType: string;
     sourceId: string;
   }
-): { data: AppData; cogs: number } {
+): { data: AppData; cogs: number; shortfall: number } {
   let remaining = params.qty;
   let cogs = 0;
   const layers = [...data.fifoLayers]
@@ -269,6 +315,7 @@ function consumeItem(
       stockLedger: [...ledger, ...data.stockLedger],
     },
     cogs,
+    shortfall: remaining,
   };
 }
 

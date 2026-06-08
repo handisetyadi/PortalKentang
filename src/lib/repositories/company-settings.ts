@@ -1,4 +1,4 @@
-import type { ReceiptSettings } from "@/lib/data/types";
+import type { LoyaltySettings, ReceiptSettings } from "@/lib/data/types";
 
 export type PrinterOutletSettings = {
   printerName?: string;
@@ -10,7 +10,10 @@ export type CompanySettingsRow = {
   receipt: unknown;
   printer: unknown;
   integrations: unknown;
+  loyalty?: unknown;
 };
+
+const DEFAULT_LOYALTY: LoyaltySettings = { rupiahPerPoint: 1000 };
 
 const DEFAULT_RECEIPT = (storeName: string): ReceiptSettings => ({
   storeName,
@@ -39,6 +42,24 @@ export function parseReceiptSettings(
     copyCount: typeof r.copyCount === "number" ? r.copyCount : 1,
     autoCut: typeof r.autoCut === "boolean" ? r.autoCut : true,
   };
+}
+
+export function parseLoyaltySettings(
+  row: CompanySettingsRow | null | undefined
+): LoyaltySettings {
+  if (!row?.loyalty || typeof row.loyalty !== "object") {
+    return DEFAULT_LOYALTY;
+  }
+  const l = row.loyalty as Record<string, unknown>;
+  const rupiahPerPoint =
+    typeof l.rupiahPerPoint === "number" && l.rupiahPerPoint > 0
+      ? l.rupiahPerPoint
+      : DEFAULT_LOYALTY.rupiahPerPoint;
+  return { rupiahPerPoint };
+}
+
+export function loyaltyToJson(loyalty: LoyaltySettings): Record<string, unknown> {
+  return { rupiahPerPoint: loyalty.rupiahPerPoint };
 }
 
 export function receiptToJson(receipt: ReceiptSettings): Record<string, unknown> {

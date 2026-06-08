@@ -9,11 +9,15 @@ interface CartState {
   customerId?: string;
   cartNote?: string;
   heldOrderId?: string;
+  redeemPoints: boolean;
+  voucherCode: string;
   addLine: (line: Omit<CartLine, "id">) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   removeLine: (lineId: string) => void;
   setCustomer: (customerId?: string) => void;
   setCartNote: (note: string) => void;
+  setRedeemPoints: (redeem: boolean) => void;
+  setVoucherCode: (code: string) => void;
   clear: () => void;
   getSubtotal: () => number;
   getTaxTotal: () => number;
@@ -26,6 +30,8 @@ export const useCartStore = create<CartState>((set, get) => ({
   customerId: undefined,
   cartNote: undefined,
   heldOrderId: undefined,
+  redeemPoints: false,
+  voucherCode: "",
 
   addLine: (line) =>
     set((s) => {
@@ -50,17 +56,31 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   removeLine: (lineId) => set((s) => ({ lines: s.lines.filter((l) => l.id !== lineId) })),
 
-  setCustomer: (customerId) => set({ customerId }),
+  setCustomer: (customerId) =>
+    set({ customerId, redeemPoints: false }),
+
   setCartNote: (cartNote) => set({ cartNote }),
 
-  clear: () => set({ lines: [], customerId: undefined, cartNote: undefined, heldOrderId: undefined }),
+  setRedeemPoints: (redeemPoints) => set({ redeemPoints }),
+
+  setVoucherCode: (voucherCode) => set({ voucherCode }),
+
+  clear: () =>
+    set({
+      lines: [],
+      customerId: undefined,
+      cartNote: undefined,
+      heldOrderId: undefined,
+      redeemPoints: false,
+      voucherCode: "",
+    }),
 
   getSubtotal: () => getCartTotals(get().lines).subtotal,
   getTaxTotal: () => getCartTotals(get().lines).taxTotal,
   getTotal: () => getCartTotals(get().lines).total,
 
   loadHeld: (lines, customerId, note) =>
-    set({ lines, customerId, cartNote: note, heldOrderId: undefined }),
+    set({ lines, customerId, cartNote: note, heldOrderId: undefined, redeemPoints: false, voucherCode: "" }),
 }));
 
 export function buildPaymentsFromCart(

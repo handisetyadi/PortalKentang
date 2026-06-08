@@ -30,12 +30,13 @@ import {
 import { hasInventoryItemName } from "@/lib/inventory/inventory-item-names";
 import { nextSemiFinishedSku } from "@/lib/inventory/semi-finished-sku";
 import { toast } from "@/hooks/use-toast";
+import type { PersistAppDataFn } from "@/hooks/use-app-data";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: AppData;
-  persist: (data: AppData) => Promise<void>;
+  persist: PersistAppDataFn;
   onCreated: (item: InventoryItem) => void;
 };
 

@@ -29,7 +29,15 @@ export async function persistSale(
     sync_status: transaction.syncStatus,
     cart_note: transaction.cartNote ?? null,
     completed_at: transaction.completedAt ?? null,
-  });
+    voucher_id: transaction.voucherId ?? null,
+    voucher_code: transaction.voucherCode ?? null,
+    voucher_discount: transaction.voucherDiscount,
+    points_redeemed: transaction.pointsRedeemed,
+    points_earned: transaction.pointsEarned,
+    loyalty_rule_id: transaction.loyaltyRuleId ?? null,
+    redeemed_product_id: transaction.redeemedProductId ?? null,
+    redeemed_line_discount: transaction.redeemedLineDiscount,
+  } as Record<string, unknown>);
   throwIfError(txnErr);
 
   for (const item of transaction.items) {
@@ -140,10 +148,57 @@ export async function persistSale(
           tags: cust.tags,
           whatsapp_opt_in: cust.whatsappOptIn,
           email_opt_in: cust.emailOptIn,
-        })
+          member_points_balance: cust.memberPointsBalance,
+          total_spend: cust.totalSpend,
+          last_transaction_at: cust.lastTransactionAt ?? transaction.completedAt ?? null,
+        } as Record<string, unknown>)
         .eq("id", cust.id)
         .eq("company_id", companyId);
       throwIfError(error);
+    }
+  }
+
+  const ledgerForTxn = data.loyaltyPointLedger.filter(
+    (e) => e.transactionId === transaction.id
+  );
+  for (const entry of ledgerForTxn) {
+    const { error } = await supabase.from("loyalty_point_ledger").insert({
+      id: entry.id,
+      company_id: companyId,
+      customer_id: entry.customerId,
+      transaction_id: entry.transactionId ?? null,
+      type: entry.type,
+      points_delta: entry.pointsDelta,
+      balance_after: entry.balanceAfter,
+      metadata: entry.metadata ?? {},
+      created_at: entry.createdAt,
+    } as Record<string, unknown>);
+    throwIfError(error);
+  }
+
+  const redemptionForTxn = data.voucherRedemptions.find(
+    (vr) => vr.transactionId === transaction.id
+  );
+  if (redemptionForTxn) {
+    const { error } = await supabase.from("voucher_redemptions").insert({
+      id: redemptionForTxn.id,
+      company_id: companyId,
+      voucher_id: redemptionForTxn.voucherId,
+      transaction_id: redemptionForTxn.transactionId,
+      customer_id: redemptionForTxn.customerId ?? null,
+      discount_applied: redemptionForTxn.discountApplied,
+      redeemed_at: redemptionForTxn.redeemedAt,
+    } as Record<string, unknown>);
+    throwIfError(error);
+
+    const voucher = data.vouchers.find((v) => v.id === redemptionForTxn.voucherId);
+    if (voucher) {
+      const { error: voucherErr } = await supabase
+        .from("vouchers")
+        .update({ redemption_count: voucher.redemptionCount })
+        .eq("id", voucher.id)
+        .eq("company_id", companyId);
+      throwIfError(voucherErr);
     }
   }
 }

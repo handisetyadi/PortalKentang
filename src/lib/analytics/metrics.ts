@@ -43,6 +43,35 @@ export function computeDashboardMetrics(data: AppData, days = 30) {
     })
   );
 
+  const pointsEarned = txns.reduce((s, t) => s + (t.pointsEarned ?? 0), 0);
+  const pointsRedeemed = txns.reduce((s, t) => s + (t.pointsRedeemed ?? 0), 0);
+  const voucherDiscountTotal = txns.reduce((s, t) => s + (t.voucherDiscount ?? 0), 0);
+  const voucherRedemptionCount = txns.filter((t) => (t.voucherDiscount ?? 0) > 0).length;
+
+  const voucherUsage = new Map<string, { count: number; discount: number }>();
+  txns.forEach((t) => {
+    if (!t.voucherCode || (t.voucherDiscount ?? 0) <= 0) return;
+    const cur = voucherUsage.get(t.voucherCode) ?? { count: 0, discount: 0 };
+    voucherUsage.set(t.voucherCode, {
+      count: cur.count + 1,
+      discount: cur.discount + (t.voucherDiscount ?? 0),
+    });
+  });
+  const voucherUsageData = Array.from(voucherUsage.entries())
+    .map(([code, stats]) => ({ code, ...stats }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const pointsByDay = new Map<string, number>();
+  txns.forEach((t) => {
+    if ((t.pointsRedeemed ?? 0) <= 0) return;
+    const d = t.createdAt.slice(0, 10);
+    pointsByDay.set(d, (pointsByDay.get(d) ?? 0) + (t.pointsRedeemed ?? 0));
+  });
+  const pointRedemptionTrend = Array.from(pointsByDay.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, points]) => ({ date, points }));
+
   return {
     grossSales,
     netSales: grossSales - discountTotal,
@@ -55,5 +84,11 @@ export function computeDashboardMetrics(data: AppData, days = 30) {
     salesTrend,
     productMixData,
     paymentSplit: Array.from(paymentSplit.entries()).map(([name, value]) => ({ name, value })),
+    pointsEarned,
+    pointsRedeemed,
+    voucherDiscountTotal,
+    voucherRedemptionCount,
+    voucherUsageData,
+    pointRedemptionTrend,
   };
 }

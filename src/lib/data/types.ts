@@ -162,6 +162,61 @@ export interface RecipeByproduct {
   costAllocationPercent: number;
 }
 
+export type LoyaltyRedeemType = "beverage" | "food" | "retail" | "specific_product";
+
+export type VoucherDiscountType = "percentage" | "fixed_amount";
+
+export type LoyaltyPointLedgerType = "earn" | "redeem";
+
+export interface LoyaltySettings {
+  rupiahPerPoint: number;
+}
+
+export interface LoyaltyRedemptionRule {
+  id: string;
+  pointsRequired: number;
+  redeemType: LoyaltyRedeemType;
+  productId?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Voucher {
+  id: string;
+  code: string;
+  discountType: VoucherDiscountType;
+  discountValue: number;
+  minSpend: number;
+  validFrom: string;
+  validUntil: string;
+  maxRedemptions?: number;
+  redemptionCount: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VoucherRedemption {
+  id: string;
+  voucherId: string;
+  transactionId: string;
+  customerId?: string;
+  discountApplied: number;
+  redeemedAt: string;
+}
+
+export interface LoyaltyPointLedgerEntry {
+  id: string;
+  customerId: string;
+  transactionId?: string;
+  type: LoyaltyPointLedgerType;
+  pointsDelta: number;
+  balanceAfter: number;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface Customer {
   id: string;
   brandId?: string;
@@ -173,7 +228,10 @@ export interface Customer {
   whatsappOptIn: boolean;
   emailOptIn: boolean;
   notes?: string;
+  memberPointsBalance: number;
   totalSpend: number;
+  lastTransactionAt?: string;
+  /** @deprecated use lastTransactionAt */
   lastVisitAt?: string;
 }
 
@@ -234,6 +292,14 @@ export interface Transaction {
   taxTotal: number;
   total: number;
   fifoCogsTotal: number;
+  voucherId?: string;
+  voucherCode?: string;
+  voucherDiscount: number;
+  pointsRedeemed: number;
+  pointsEarned: number;
+  loyaltyRuleId?: string;
+  redeemedProductId?: string;
+  redeemedLineDiscount: number;
   syncStatus: "synced" | "pending" | "failed" | "conflict";
   syncMetadata?: Record<string, unknown>;
   invoicePdfPath?: string;
@@ -320,4 +386,9 @@ export interface AppData {
   heldOrders: HeldOrder[];
   approvals: ApprovalRequest[];
   receiptSettings: ReceiptSettings;
+  loyaltySettings: LoyaltySettings;
+  loyaltyRules: LoyaltyRedemptionRule[];
+  vouchers: Voucher[];
+  voucherRedemptions: VoucherRedemption[];
+  loyaltyPointLedger: LoyaltyPointLedgerEntry[];
 }

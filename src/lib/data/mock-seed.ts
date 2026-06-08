@@ -73,9 +73,9 @@ export function createMockSeed(): AppData {
   ];
 
   const customers = [
-    { id: "cu1", name: "Budi Santoso", phone: "+6281234567890", email: "budi@example.com", tags: ["regular"], whatsappOptIn: true, emailOptIn: true, totalSpend: 1250000, lastVisitAt: now() },
-    { id: "cu2", name: "Siti Rahayu", phone: "+6289876543210", email: "siti@example.com", tags: ["vip"], whatsappOptIn: true, emailOptIn: false, totalSpend: 3400000, lastVisitAt: now() },
-    { id: "cu3", name: "Walk-in Guest", phone: "", tags: [], whatsappOptIn: false, emailOptIn: false, totalSpend: 0 },
+    { id: "cu1", name: "Budi Santoso", phone: "+6281234567890", email: "budi@example.com", tags: ["regular"], whatsappOptIn: true, emailOptIn: true, memberPointsBalance: 120, totalSpend: 1250000, lastTransactionAt: now(), lastVisitAt: now() },
+    { id: "cu2", name: "Siti Rahayu", phone: "+6289876543210", email: "siti@example.com", tags: ["vip"], whatsappOptIn: true, emailOptIn: false, memberPointsBalance: 340, totalSpend: 3400000, lastTransactionAt: now(), lastVisitAt: now() },
+    { id: "cu3", name: "Walk-in Guest", phone: "", tags: [], whatsappOptIn: false, emailOptIn: false, memberPointsBalance: 0, totalSpend: 0 },
   ];
 
   const openSession: AppData["posSessions"][0] = {
@@ -121,6 +121,10 @@ export function createMockSeed(): AppData {
     taxTotal: 8140,
     total: 74000,
     fifoCogsTotal: 12000,
+    voucherDiscount: 0,
+    pointsRedeemed: 0,
+    pointsEarned: 74,
+    redeemedLineDiscount: 0,
     syncStatus: "synced",
     createdAt: new Date(Date.now() - 3600000).toISOString(),
     completedAt: new Date(Date.now() - 3600000).toISOString(),
@@ -197,6 +201,27 @@ export function createMockSeed(): AppData {
       copyCount: 1,
       autoCut: true,
     },
+    loyaltySettings: { rupiahPerPoint: 1000 },
+    loyaltyRules: [
+      { id: "lr1", pointsRequired: 50, redeemType: "beverage", isActive: true },
+      { id: "lr2", pointsRequired: 80, redeemType: "food", isActive: true },
+    ],
+    vouchers: [
+      {
+        id: "vc1",
+        code: "KENTANG10",
+        discountType: "percentage",
+        discountValue: 10,
+        minSpend: 50000,
+        validFrom: new Date(Date.now() - 86400000 * 30).toISOString(),
+        validUntil: new Date(Date.now() + 86400000 * 90).toISOString(),
+        maxRedemptions: 100,
+        redemptionCount: 3,
+        isActive: true,
+      },
+    ],
+    voucherRedemptions: [],
+    loyaltyPointLedger: [],
   };
 
   return resolveAppDataIds(raw);

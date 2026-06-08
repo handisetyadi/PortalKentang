@@ -13,6 +13,8 @@ import { repairTransactions } from "@/lib/pos/repair-transactions";
 import { useAuth } from "@/components/providers/auth-provider";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
+export type PersistAppDataFn = (next: AppData) => Promise<{ remoteError?: string }>;
+
 export function useAppData() {
   const { session } = useAuth();
   const [data, setData] = useState<AppData | null>(null);
@@ -39,8 +41,8 @@ export function useAppData() {
     setData(next);
   }, []);
 
-  const persist = useCallback(
-    async (next: AppData): Promise<{ remoteError?: string }> => {
+  const persist = useCallback<PersistAppDataFn>(
+    async (next) => {
       await saveAppData(next);
       setData(next);
       let remoteError: string | undefined;
